@@ -1,26 +1,35 @@
 server:
-  port: 8080
+  port: 0
 
 spring:
   application:
     name: issueflow
   datasource:
-    url: jdbc:h2:mem:db;MODE=PostgreSQL;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:issueflow;MODE=PostgreSQL;DB_CLOSE_ON_EXIT=FALSE
     username: sa
-    password: password
-    driverClassName: org.h2.Driver
-  sql:
-    init:
-      platform: mssql
-  h2:
-    console:
-      enabled: true
+    password: ""
+    driver-class-name: org.h2.Driver
   jpa:
-    database: POSTGRESQL
-    show-sql: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    open-in-view: false
+  flyway:
+    enabled: false
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-components: always
+      show-details: always

@@ -1,0 +1,1 @@
+-- IssueFlow baseline. No schema objects yet; entities arrive with later features.

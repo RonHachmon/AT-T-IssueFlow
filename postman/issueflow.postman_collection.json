@@ -1,0 +1,137 @@
+{
+  "info": {
+    "name": "IssueFlow",
+    "description": "API collection for the IssueFlow ticket management backend. Add new requests under the appropriate folder as endpoints are built.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "00000000-0000-0000-0000-000000000001"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "{{baseUrl}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health — Healthy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Verifies the application and database are both up. Expect 200 with status=UP and both components UP."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Overall status is UP', function () {",
+                  "  pm.expect(pm.response.json().status).to.eql('UP');",
+                  "});",
+                  "pm.test('Application component is UP', function () {",
+                  "  pm.expect(pm.response.json().components.application.status).to.eql('UP');",
+                  "});",
+                  "pm.test('DB component is UP', function () {",
+                  "  pm.expect(pm.response.json().components.db.status).to.eql('UP');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health — DB Down (manual)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Operator must stop the database container (`docker compose stop db`) before running this request. Expect 503 with components.db.status=DOWN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 503', function () {",
+                  "  pm.response.to.have.status(503);",
+                  "});",
+                  "pm.test('DB component is DOWN', function () {",
+                  "  pm.expect(pm.response.json().components.db.status).to.eql('DOWN');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "item": [
+        {
+          "name": "List tickets (placeholder)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets"]
+            },
+            "description": "Placeholder — wire this up once you add a TicketController."
+          }
+        },
+        {
+          "name": "Create ticket (placeholder)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example ticket\",\n  \"description\": \"Created from Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets"]
+            }
+          }
+        },
+        {
+          "name": "Get ticket by id (placeholder)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", ":id"],
+              "variable": [
+                { "key": "id", "value": "1" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

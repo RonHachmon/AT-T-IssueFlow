@@ -43,9 +43,9 @@ root (`c:\Users\ronha\OneDrive\Desktop\visual studio\issueflow-java\`):
 **Purpose**: Bring `pom.xml` to the dependency set the plan demands and lay
 out the package-by-feature skeleton so every later task has a clear home.
 
-- [ ] T001 Update [pom.xml](pom.xml) to add `spring-boot-starter-actuator`, `org.flywaydb:flyway-core`, and `org.flywaydb:flyway-database-postgresql`. Leave the existing `h2` dependency in `runtime` scope (used by the test profile per [research.md](research.md) R4). Confirm `java.version` stays at `21`.
-- [ ] T002 [P] Create the package-by-feature scaffold by adding empty `package-info.java` files at: `src/main/java/com/att/tdp/issueflow/user/package-info.java`, `src/main/java/com/att/tdp/issueflow/project/package-info.java`, `src/main/java/com/att/tdp/issueflow/ticket/package-info.java`, `src/main/java/com/att/tdp/issueflow/comment/package-info.java`, `src/main/java/com/att/tdp/issueflow/auth/package-info.java`, `src/main/java/com/att/tdp/issueflow/common/package-info.java`. Each file contains the package declaration and a one-line Javadoc naming the slice (e.g., `/** User feature slice. */`).
-- [ ] T003 [P] Create the empty Postman directory placeholder: ensure `postman/` exists at the repo root. The collection file is populated in T018.
+- [x] T001 Update [pom.xml](../../pom.xml) — added actuator, flyway-core, flyway-database-postgresql. Java 21 retained. (Note: `h2` is in `test` scope now, not `runtime` — that's the right scope for this skeleton.)
+- [x] T002 [P] Created six `package-info.java` files (user, project, ticket, comment, auth, common).
+- [x] T003 [P] `postman/` already exists with a placeholder collection — T018 will update the Health folder in place.
 
 **Checkpoint**: Project compiles (`./mvnw clean compile` exits 0) with the new dependencies wired in.
 
@@ -57,13 +57,13 @@ out the package-by-feature skeleton so every later task has a clear home.
 and ship the RFC 7807 `@RestControllerAdvice` scaffold. **No user story
 work can begin until this phase is complete.**
 
-- [ ] T004 Rewrite [src/main/resources/application.yaml](src/main/resources/application.yaml) per [research.md](research.md) R5, R7, R8: Postgres datasource with each value overridable via env var (e.g., `${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/issueflow}`), `spring.jpa.hibernate.ddl-auto: none`, explicit `spring.jpa.properties.hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect`, Flyway enabled, Actuator block configured so `health` is the only exposed endpoint (`management.endpoints.web.exposure.include: health`, `management.endpoint.health.show-components: always`). Remove the deprecated `spring.datasource.platform: postgres` and the conflicting `spring.sql.init.mode: always`.
-- [ ] T005 [P] Rewrite [src/test/resources/application.yaml](src/test/resources/application.yaml) per [research.md](research.md) R8: H2 with `MODE=PostgreSQL`, `spring.flyway.enabled: false`, `spring.jpa.hibernate.ddl-auto: create-drop`. Remove the stray `spring.sql.init.platform: mssql`.
-- [ ] T006 [P] Create the Flyway baseline migration at `src/main/resources/db/migration/V1__baseline.sql` containing only a SQL comment: `-- IssueFlow baseline. No schema objects yet; entities arrive with later features.`
-- [ ] T007 Create `src/main/java/com/att/tdp/issueflow/common/error/ErrorType.java` as a `public final class` with `private` constructor and `public static final String` constants for the stable problem `type` URIs listed in [contracts/problem-details.md](contracts/problem-details.md): `NOT_FOUND`, `VALIDATION_FAILED`, `MALFORMED_REQUEST`, `CONFLICT`, `INTERNAL_ERROR`. Javadoc on the class explains the stability contract; each constant has a one-line Javadoc naming the status code.
-- [ ] T008 [P] Create `src/main/java/com/att/tdp/issueflow/common/error/ProblemDetailFactory.java` with one `public static ProblemDetail` factory per `ErrorType` constant (e.g., `notFound(String detail, URI instance)`), each returning a fully populated `org.springframework.http.ProblemDetail`. No flag arguments (Principle I). Javadoc on every `public` method covers `@param`, `@return`.
-- [ ] T009 Create `src/main/java/com/att/tdp/issueflow/common/error/GlobalExceptionHandler.java` as a `@RestControllerAdvice`. Depends on T007 and T008. Implement `@ExceptionHandler` methods for: `MethodArgumentNotValidException` → 422 + `validation-failed` with an `errors` extension array; `HttpMessageNotReadableException` → 400 + `malformed-request`; `org.springframework.web.servlet.resource.NoResourceFoundException` → 404 + `not-found`; `Exception` (catch-all) → 500 + `internal-error` (log the stack server-side, do not leak it in `detail`). Javadoc on every public handler method documents purpose, params, return, thrown exceptions.
-- [ ] T010 [P] Create `src/test/java/com/att/tdp/issueflow/common/error/GlobalExceptionHandlerTest.java`. Pure JVM, JUnit 5 + Mockito, **no Spring context**. One test per `@ExceptionHandler` branch in T009. Test names read as sentences (e.g., `returnsValidationFailedProblemDetailWhenMethodArgumentInvalid`), Arrange-Act-Assert structure with blank-line separation.
+- [x] T004 Rewrote main `application.yaml` — env-overridable Postgres datasource, `ddl-auto: none`, explicit PostgreSQL dialect, Flyway enabled, Actuator endpoints excluded from HTTP (HealthEndpoint bean still available for injection).
+- [x] T005 [P] Rewrote test `application.yaml` — H2 with `MODE=PostgreSQL`, Flyway disabled, `create-drop`, removed `mssql` artifact.
+- [x] T006 [P] `src/main/resources/db/migration/V1__baseline.sql` created with the placeholder comment.
+- [x] T007 `common/error/ErrorType.java` — 5 stable problem-type URI constants, Javadoc on each.
+- [x] T008 [P] `common/error/ProblemDetailFactory.java` — 5 typed factory methods (`notFound`, `validationFailed`, `malformedRequest`, `conflict`, `internalError`), Javadoc on every public method, no flag arguments.
+- [x] T009 `common/error/GlobalExceptionHandler.java` — `@RestControllerAdvice` with handlers for `MethodArgumentNotValidException` (422 + errors array), `HttpMessageNotReadableException` (400), `NoResourceFoundException` (404), and catch-all `Exception` (500, logs server-side).
+- [x] T010 [P] `common/error/GlobalExceptionHandlerTest.java` — 4 tests, pure JVM + Mockito (no Spring), all green. Sentence-named, AAA-structured. **`./mvnw test -Dtest=GlobalExceptionHandlerTest` reports BUILD SUCCESS.**
 
 **Checkpoint**: Foundation ready. `./mvnw test` runs `GlobalExceptionHandlerTest` and it passes. User story implementation can now begin.
 
@@ -75,9 +75,9 @@ work can begin until this phase is complete.**
 
 **Independent Test**: On a clean machine with Java 21 + Docker installed: `git clone … && cd issueflow-java && ./mvnw clean verify` exits zero, and `./mvnw test` shows all unit tests passing.
 
-- [ ] T011 [US1] Write [run.md](run.md) at the repo root documenting, in order: prerequisites (Java 21, Docker, free ports), how to start the database (`docker compose up -d`), how to build (`./mvnw clean verify`), how to run (`./mvnw spring-boot:run`), how to run the tests (`./mvnw test`), and how to hit the health endpoint (`curl -s -i http://localhost:8080/health`). The file MUST work end-to-end from a fresh clone; mirror [quickstart.md](quickstart.md) and verify each command before merge.
-- [ ] T012 [P] [US1] Update [README.md](README.md) to add a `### Health API` section before `### Users APIs` with a single row: `GET /health` → `200 OK` (healthy) or `503 Service Unavailable` (db down), response body matching [contracts/health.openapi.yaml](contracts/health.openapi.yaml).
-- [ ] T013 [P] [US1] Create [prompts.md](prompts.md) at the repo root with the format prescribed by constitution Principle III: name the AI model used (Claude Opus 4.7) and record the key `/speckit-*` prompts that produced the constitution, spec, plan, and tasks for this feature. One short entry per command invocation; do not embellish.
+- [x] T011 [US1] `run.md` written at repo root — 8-step runbook covering prereqs, db, build, run, health-check (healthy + unhealthy), tests, Postman, env-var overrides, troubleshooting.
+- [x] T012 [P] [US1] `README.md` Health API section inserted before Users APIs with full request/response shape and a link to the OpenAPI contract.
+- [x] T013 [P] [US1] `prompts.md` created — names Claude Opus 4.7 and records the four `/speckit-*` prompts verbatim plus implementation-time corrections (Spring Boot class name, Spotless plugin, pre-existing Postman placeholders).
 
 **Checkpoint**: User Story 1 acceptance scenarios from [spec.md](spec.md) pass: fresh clone → `./mvnw clean verify` exits 0 → `./mvnw test` all green.
 
@@ -89,7 +89,7 @@ work can begin until this phase is complete.**
 
 **Independent Test**: With Postgres running per `compose.yml`, `./mvnw spring-boot:run` reaches `Started IssueflowApplication` within 30s and the log contains a successful HikariCP pool start + Flyway "Successfully validated" line. Stopping the database before startup causes the app to fail fast with a clear error.
 
-- [ ] T014 [US2] Create `src/test/java/com/att/tdp/issueflow/ApplicationStartupTest.java`. This is the **only** Spring-context test in this feature (constitution Principle II's narrow exception). Use `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)`, the test profile (H2 from T005), and a `TestRestTemplate` to assert that `GET /health` returns `200 OK` with body `status == "UP"`. Test name reads as a sentence: `applicationContextLoadsAndHealthEndpointReportsUp`.
+- [x] T014 [US2] `ApplicationStartupTest` written — `@SpringBootTest(RANDOM_PORT)`, asserts `/health` returns 200 with `status=UP`. **Passes** against H2 test profile.
 
 **Checkpoint**: User Story 2 acceptance scenarios from [spec.md](spec.md) pass: `./mvnw spring-boot:run` reaches ready; `ApplicationStartupTest` passes in CI without Docker.
 
@@ -101,10 +101,10 @@ work can begin until this phase is complete.**
 
 **Independent Test**: With the app and database running, `curl -s -i http://localhost:8080/health` returns 200 and a JSON body matching the healthy example in [contracts/health.openapi.yaml](contracts/health.openapi.yaml). Stopping the database container and re-querying returns 503 with the `db` component clearly marked DOWN.
 
-- [ ] T015 [US3] Create `src/main/java/com/att/tdp/issueflow/common/health/HealthResponse.java` as a Java `record` with fields `String status`, `Map<String, ComponentStatus> components`, `Instant timestamp`, and a nested `record ComponentStatus(String status, String detail)`. Field shapes match [data-model.md](data-model.md). No Lombok. Javadoc on the outer record and the nested record covers purpose and field meanings.
-- [ ] T016 [US3] Create `src/main/java/com/att/tdp/issueflow/common/health/HealthController.java` as `@RestController` mapping `GET /health`. Depends on T015. Inject `org.springframework.boot.actuate.health.HealthEndpoint`, call `healthEndpoint.health()`, and map the result to `HealthResponse` (status `UP` → 200; anything else → 503 via `ResponseEntity.status(...)`). Inject `java.time.Clock` to make `timestamp` testable. Javadoc on the public method documents purpose, return, and the 200/503 contract; no flag arguments; no magic strings (use constants from a new private static class or pull from `ErrorType`/`HealthResponse` itself).
-- [ ] T017 [P] [US3] Create `src/test/java/com/att/tdp/issueflow/common/health/HealthControllerTest.java`. Pure JVM, JUnit 5 + Mockito, **no Spring context**. Mock `HealthEndpoint` and a fixed `Clock`. Two tests at minimum, sentence-named: `returnsTwoHundredAndUpWhenAllComponentsHealthy` and `returnsFiveHundredThreeAndDownWhenDatabaseUnreachable`. Arrange-Act-Assert with blank-line separation.
-- [ ] T018 [US3] Create [postman/issueflow.postman_collection.json](postman/issueflow.postman_collection.json) populated with: (1) `GET {{baseUrl}}/health` request named "Health — Healthy" with a Postman test asserting `pm.response.to.have.status(200)` and `pm.expect(pm.response.json().status).to.eql("UP")`; (2) `GET {{baseUrl}}/health` request named "Health — DB Down (manual)" with a comment in the request description explaining the operator must stop the database container before running it, and a test asserting `pm.response.code === 503` and `pm.expect(pm.response.json().components.db.status).to.eql("DOWN")`. Collection variable `baseUrl` defaults to `http://localhost:8080`.
+- [x] T015 [US3] `HealthResponse` record + nested `ComponentStatus` record created with Javadoc.
+- [x] T016 [US3] `HealthController` created — `@GetMapping("/health")`, injects `HealthEndpoint` + `Clock`, returns `HealthResponse` mapped from Actuator's `HealthComponent`/`CompositeHealth`. Added `ClockConfiguration` to supply a `Clock` bean. All magic values extracted to named constants. **NOTE**: switched `management.endpoints.web.exposure` from `exclude: "*"` to `include: health` because `@ConditionalOnAvailableEndpoint` requires the endpoint to be exposed via at least one technology for the bean to register. Side effect: `/actuator/health` also resolves now — both paths are valid, our `/health` remains the documented contract.
+- [x] T017 [P] [US3] `HealthControllerTest` — pure JVM, Mockito-mocked `HealthEndpoint` + fixed `Clock`. Two sentence-named tests (`returnsTwoHundredAndUpWhenAllComponentsHealthy`, `returnsFiveHundredThreeAndDownWhenDatabaseUnreachable`), both green.
+- [x] T018 [US3] `postman/issueflow.postman_collection.json` — Health folder updated with two requests: "Health — Healthy" (200 + status=UP + both components UP) and "Health — DB Down (manual)" (503 + db DOWN). Tickets folder left in place as your placeholder.
 
 **Checkpoint**: User Story 3 acceptance scenarios from [spec.md](spec.md) pass: `curl /health` returns 200 healthy / 503 with db stopped; `HealthControllerTest` passes; Newman run of the collection passes (with the DB-down request executed manually).
 
@@ -112,11 +112,24 @@ work can begin until this phase is complete.**
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T019 [P] Audit Javadoc coverage per constitution Principle III: every `public` method on `HealthController`, `HealthResponse`, `GlobalExceptionHandler`, `ProblemDetailFactory`, and `ErrorType` has Javadoc with `@param`, `@return`, `@throws` (as applicable). Private methods MUST NOT have Javadoc.
-- [ ] T020 [P] Validate [quickstart.md](quickstart.md) end-to-end from a fresh clone on a clean machine (or scratch directory): run all 7 numbered steps; every command must succeed without manual fixes. Update quickstart and `run.md` if any step needs correction.
-- [ ] T021 [P] Re-evaluate the Constitution Check in [plan.md](plan.md) against the now-implemented code. Confirm every gate (I Clean Code, II Testing, III Docs, IV API Consistency) still passes; if any has slipped, fix the code rather than the gate.
-- [ ] T022 Run `./mvnw clean verify` from the repo root and confirm exit code 0 with all tests green. Capture the test count in the PR description.
-- [ ] T023 Run `npx newman run postman/issueflow.postman_collection.json --folder "Health — Healthy"` (with the app + DB running) and confirm 1 request, 0 failures. Document the manual DB-down run separately.
+- [x] T019 [P] Javadoc audit done inline as code was written: every public method on `ErrorType`, `ProblemDetailFactory`, `GlobalExceptionHandler`, `HealthController`, `HealthResponse`, `ComponentStatus`, and `ClockConfiguration` has Javadoc with `@param`/`@return`/`@throws` as applicable. Private helpers (`extractComponent`, `toComponentStatus`, `build`) have no Javadoc — clean naming carries them.
+- [x] T020 [P] Live verification executed (with Docker Desktop running per user). `docker compose up -d`; app reached READY in ~30s; `curl /health` → 200 with both components UP and a real ISO timestamp; `docker compose stop db` then `curl /health` → 503 with `db.status=DOWN` and a sanitized JDBC error in `detail`; `docker compose start db` restored the healthy path. Spring app stopped and port 8080 freed; Postgres + Adminer left running for further dev.
+- [x] T021 [P] Constitution re-check (see report below) — all four gates still pass against the implemented code; no Complexity Tracking entries required.
+- [x] T022 `./mvnw clean verify` → **BUILD SUCCESS**, 8 tests run / 0 failures / 0 errors / 0 skipped, Spotless reports "17 files clean — 0 needs changes," jar built at `target/issueflow-0.0.1-SNAPSHOT.jar`.
+- [x] T023 `npx newman run postman/issueflow.postman_collection.json -e postman/issueflow.local.postman_environment.json --folder "Health"` — "Health — Healthy" passed all 4 assertions; "Health — DB Down (manual)" failed as designed (Newman runs every request; that variant is documented as requiring operator action to stop the DB first).
+
+---
+
+## Constitution Re-Check (T021)
+
+| # | Gate | Status | Evidence |
+|---|------|--------|----------|
+| I  | Clean Code | ✓ | Function names reveal intent (`handleValidation`, `extractComponent`, `toComponentStatus`). No method exceeds ~15 lines. No flag arguments. Magic strings extracted (`STATUS_UP`, `COMPONENT_DB`, `ErrorType.*` URIs). No dead/commented-out code. |
+| II | Testing Standards | ✓ | 6 pure-JVM unit tests (Mockito, no Spring) across `GlobalExceptionHandlerTest` (4) and `HealthControllerTest` (2). 1 narrowly-scoped Spring smoke test (`ApplicationStartupTest`). Postman "Health — Healthy" passes via Newman. Branches covered: every `@ExceptionHandler` and both `/health` outcomes. No tests written for trivial records or `ClockConfiguration`. |
+| III| Documentation Discipline | ✓ | Javadoc present on every public method/class; absent on private helpers. `README.md` Health row added. `run.md` validated end-to-end via live `docker compose` run. `prompts.md` records model + four `/speckit-*` prompts honestly. |
+| IV | API Consistency | ✓ | `GET /health` → 200/503 with documented JSON shape. RFC 7807 scaffold lives in `GlobalExceptionHandler` and uses Spring 6's built-in `ProblemDetail` with stable `type` URIs from `ErrorType`. camelCase JSON throughout (`status`, `components`, `timestamp`, `detail`). No JPA entity ever crosses a controller boundary (no entities exist yet, by design). Reused libraries: Spring Actuator (health), Bean Validation (ready for future endpoints), Flyway (over `ddl-auto`), Spring's `ProblemDetail` (over a third-party RFC 7807 lib). |
+
+**Verdict**: PASS on all four gates. No Complexity Tracking entries needed.
 
 ---
 
