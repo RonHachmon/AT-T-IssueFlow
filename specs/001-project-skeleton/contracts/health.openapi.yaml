@@ -1,0 +1,130 @@
+openapi: 3.1.0
+info:
+  title: IssueFlow Health Contract
+  version: 1.0.0
+  description: |
+    Operational liveness contract for the IssueFlow application. This is the
+    only endpoint exposed by the project-skeleton feature; every other
+    business endpoint will be added in later features. The shape here is the
+    authoritative contract — Actuator's defaults are an implementation
+    detail and may be wrapped if their shape diverges.
+servers:
+  - url: http://localhost:8080
+    description: Local developer environment (Spring Boot default port)
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Application + database liveness.
+      description: |
+        Returns the current health of the application process and its
+        database connection.
+
+        - `200 OK` indicates the application is reachable and the database
+          is reachable.
+        - `503 Service Unavailable` indicates one or more components are
+          unhealthy. Inspect `components` to identify the failing component.
+
+        Authentication is **not** required (project-skeleton feature is
+        unsecured by design — see spec Assumptions).
+      tags: [Health]
+      responses:
+        "200":
+          description: Application and database are both healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                healthy:
+                  summary: Healthy
+                  value:
+                    status: UP
+                    components:
+                      application:
+                        status: UP
+                        detail: ""
+                      db:
+                        status: UP
+                        detail: ""
+                    timestamp: "2026-05-20T10:42:13.512Z"
+        "503":
+          description: At least one component is unhealthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                dbDown:
+                  summary: Database unreachable
+                  value:
+                    status: DOWN
+                    components:
+                      application:
+                        status: UP
+                        detail: ""
+                      db:
+                        status: DOWN
+                        detail: "Connection refused: localhost:5432"
+                    timestamp: "2026-05-20T10:42:13.512Z"
+        default:
+          description: Unexpected error — RFC 7807 ProblemDetail.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, components, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN]
+          description: Aggregated overall status across all components.
+        components:
+          type: object
+          description: Per-component status keyed by component name.
+          additionalProperties:
+            $ref: "#/components/schemas/ComponentStatus"
+          required: [application, db]
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 timestamp the health was sampled.
+    ComponentStatus:
+      type: object
+      required: [status, detail]
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN]
+        detail:
+          type: string
+          description: |
+            Human-readable hint about the component state. Empty string
+            when the component is healthy; otherwise a short message
+            (NOT a stack trace, NOT secrets).
+    ProblemDetail:
+      type: object
+      description: RFC 7807 Problem Details for HTTP APIs.
+      required: [type, title, status, detail, instance]
+      properties:
+        type:
+          type: string
+          format: uri
+          example: https://issueflow.att.com/problems/internal-error
+        title:
+          type: string
+          example: Internal server error
+        status:
+          type: integer
+          example: 500
+        detail:
+          type: string
+          example: An unexpected error occurred while sampling health.
+        instance:
+          type: string
+          format: uri-reference
+          example: /health
