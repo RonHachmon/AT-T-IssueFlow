@@ -166,3 +166,63 @@ Executed the 36 tasks. Notable manual corrections during execution:
   enforce "at least one of fullName or role" — Bean Validation surfaces
   this as a 422 ProblemDetail with `errors[].field = "hasAtLeastOneFieldSet"`,
   which clients should interpret as "request was empty."
+
+## Feature 003 — JWT Authentication & Authorization
+
+Model: **claude-sonnet-4-6** via Claude Code (VS Code extension), 2026-05-21.
+Driven by the same Spec Kit `/speckit-*` pipeline.
+
+### `/speckit-specify`
+
+> Add JWT-based authentication. Users log in with username and password and
+> receive a signed JWT. The token protects all existing endpoints — any
+> request without a valid token gets a 401. Two more auth endpoints:
+> GET /auth/me to retrieve the caller's own profile, and POST /auth/logout
+> as a no-op (stateless, client discards the token).
+
+Produced `specs/003-jwt-auth/spec.md` with 4 user stories (P1/P1/P2/P3).
+
+### `/speckit-plan`
+
+> Spring Boot 3.4 + Java 21. Add spring-boot-starter-security (Spring
+> Security 6.4.x) — removes the spring-security-crypto direct dependency
+> which becomes transitive. Add io.jsonwebtoken jjwt-api:0.12.6 (compile),
+> jjwt-impl:0.12.6 (runtime), jjwt-jackson:0.12.6 (runtime). HS256 signing
+> key derived from a configurable secret (min 32 chars). Token TTL:
+> PT12M (configurable). No schema change — password_hash column already
+> exists. Seed users via V3__seed_test_users.sql with bcrypt-hashed
+> passwords. Authority model: plain role names (ADMIN, DEVELOPER) with no
+> ROLE_ prefix — future @PreAuthorize must use hasAuthority('ADMIN').
+
+Key decisions: stateless (no HttpSession), custom RFC 7807
+AuthenticationEntryPoint for 401, `AuthController` directly injects
+`UserRepository` to access `userId` and `role` for JWT claims (no
+intermediate AuthService — see `docs/decisions.md`).
+
+Produced `plan.md`, `research.md`, `data-model.md`, `contracts/auth.openapi.yaml`, `quickstart.md`.
+
+### `/speckit-tasks`
+
+(no prompt argument)
+
+Produced `tasks.md` — 25 tasks across 6 phases with explicit `[P]`
+parallel markers.
+
+### `/speckit-implement`
+
+(no prompt argument)
+
+Executed all 25 tasks. Notable implementation notes:
+
+- `SecurityConfiguration` uses an inner `Rfc7807AuthenticationEntryPoint`
+  that serializes a `LinkedHashMap` via Jackson — avoids the Zalando
+  Problem library dependency while staying RFC 7807 compliant.
+- `AuthController` builds a throwaway `UserDetails` from the `User` entity
+  to call `jwtService.issueToken` rather than loading it a second time from
+  `UserDetailsService`. Cleaner than a double DB round-trip.
+- `JwtAuthenticationFilter` only sets the `SecurityContextHolder` when it
+  is currently empty — prevents re-authentication on every hop if a filter
+  earlier in the chain has already populated it.
+- Unit tests are pure JVM: `JwtServiceTest` constructs `JwtService` directly
+  with a test `JwtProperties`; `IssueFlowUserDetailsServiceTest` mocks
+  `UserRepository` with Mockito.

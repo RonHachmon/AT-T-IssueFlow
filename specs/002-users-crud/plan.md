@@ -1,165 +1,113 @@
-# Implementation Plan: Users CRUD
+# Implementation Plan: [FEATURE]
 
-**Branch**: `002-users-crud` | **Date**: 2026-05-21 | **Spec**: [spec.md](spec.md)
-**Input**: Feature specification from `specs/002-users-crud/spec.md`
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+
+**Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
 ## Summary
 
-Add a `User` entity (Long id, BCrypt-ready `passwordHash` column) and the
-five REST endpoints from the spec: `POST /users`, `GET /users/{userId}`,
-`GET /users` (paginated), `PATCH /users/{userId}`, `DELETE /users/{userId}`.
-Schema is shipped via a Flyway `V2__users.sql` migration. Validation lives
-on DTOs via jakarta.validation; the existing `GlobalExceptionHandler` maps
-`MethodArgumentNotValidException` to 422 ProblemDetail with field-level
-errors automatically. Duplicate username/email is detected up-front in the
-service via `existsByUsernameIgnoreCase` / `existsByEmailIgnoreCase` and
-mapped to a 409 — case-insensitive uniqueness is enforced at the database
-by functional unique indexes on `LOWER(username)` / `LOWER(email)`.
-Entity↔DTO mapping is generated at compile time by MapStruct.
+[Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
 
-**Language/Version**: Java 21 (unchanged from skeleton)
-**Primary Dependencies (new)**:
-- `org.mapstruct:mapstruct` and `org.mapstruct:mapstruct-processor` for
-  compile-time entity↔DTO mapping
-- `org.springframework.security:spring-security-crypto` for
-  `BCryptPasswordEncoder` (the *only* Spring Security module we pull in
-  this phase — no autoconfiguration, no filter chain)
-- Existing: Spring Data JPA, Spring Boot Validation, Flyway, Lombok,
-  PostgreSQL driver
-**Storage**: PostgreSQL 16 via the existing `compose.yml`. New table
-`users` introduced by Flyway migration `V2__users.sql`.
-**Testing** (per constitution Principle II):
-- **Pure-JVM unit tests**: `UserServiceTest` (Mockito mocks
-  `UserRepository`, `UserMapper`, `BCryptPasswordEncoder`) covering
-  duplicate-detection, role-enum validation, immutability of
-  username/email on update, and not-found mapping.
-- **Pure-JVM unit tests**: `UserControllerTest` (Mockito mocks
-  `UserService`) covering status-code mapping per endpoint.
-- **Postman**: full collection covering all 5 endpoints + happy and
-  validation-error paths.
-- The single allowed Spring-context smoke test (`ApplicationStartupTest`)
-  already exists; no new Spring-context tests required for this feature
-  (validation-trigger behavior is covered by Postman).
-**Target Platform**: same as skeleton — locally runnable JVM + Postgres.
-**Project Type**: web service (unchanged).
-**Performance Goals**: list endpoint serves first page (≤20 records) in
-under 200 ms locally; create/update/delete complete in under 100 ms.
-**Constraints**:
-- `passwordHash` column is **nullable** in this feature (no login yet).
-  The column exists so the `users` table is forward-compatible with the
-  Phase-2 auth feature — no schema migration at that point.
-- The API surface in this feature MUST NOT accept, expose, or echo a
-  password. `BCryptPasswordEncoder` is wired up as a bean but unused at
-  the boundary.
-- Username and email are **immutable** after creation (spec FR-011).
-**Scale/Scope**: 1 entity, 5 endpoints, ~12 Java classes/records, 1
-migration, 1 unique-index pair.
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
+
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Check each gate against `.specify/memory/constitution.md` (v1.0.0). For any
+Check each gate against `.specify/memory/constitution.md` (v1.1.0). For any
 "No", either fix the design or record a justification in **Complexity
 Tracking** below.
 
-| # | Gate | Pass? | Notes |
-|---|------|-------|-------|
-| I  | **Clean Code** — function names reveal intent; no functions mix abstraction levels; no flag arguments; no magic numbers/strings. | [x] | Service methods (`create`, `getById`, `list`, `update`, `delete`) are single-responsibility. Status codes and constraint names extracted to constants. No flag arguments planned — partial update is naturally expressed through `UpdateUserRequest` field-presence. |
-| II | **Testing Standards** — JUnit 5 + Mockito unit tests (no Spring) AND Postman; complex tests required where branching/state/edge cases exist. | [x] | `UserServiceTest` covers duplicate detection, immutability rules, not-found mapping, role validation. `UserControllerTest` covers status-code mapping per endpoint. Postman collection covers all 5 endpoints + 422/409/404 error paths. No trivial getter/mapper tests planned. |
-| III| **Documentation Discipline** — Javadoc on every new public method; README endpoint rows updated; `run.md` updated only if startup steps changed; `prompts.md` records AI use. | [x] | Public methods on `UserService`, `UserController`, `UserMapper`, `BCryptPasswordEncoder` provider all get Javadoc. README's Users section will be rewritten (the existing rows use non-REST verbs/status codes — fixing them as part of this PR). `run.md` unchanged (no startup-step changes). `prompts.md` gains a "Feature 002 — Users CRUD" entry. |
-| IV | **API Consistency** — correct verbs/status codes (201/204/404/409/422); plural noun paths; RFC 7807 errors; camelCase JSON / snake_case SQL; `<entity>Id` foreign keys; DTOs (never entities) at boundary; canonical pagination envelope; popular libraries over hand-rolled. | [x] | `POST /users` → 201 + `Location`. `DELETE /users/{userId}` → 204. `GET /users/{userId}` → 404 on miss. Duplicate username/email → 409. Bean Validation failure → 422 with `errors[]` extension (already implemented in `GlobalExceptionHandler`). Plural `/users`. camelCase DTOs (`fullName`, `createdAt`); snake_case SQL (`full_name`, `created_at`). DTOs never expose `User` entity. Pagination envelope `{ data, page, pageSize, total }` defined in `contracts/pagination.md` — first feature to use it. Reuses MapStruct (popular library), Bean Validation (popular library), Spring Data JPA derived queries — no hand-rolled SQL. |
-
-Phase 0/1 gate: **PASS**.
-
-Post-design gate (re-evaluated after Phase 1 artifacts): **PASS** — no
-violations introduced.
+| # | Gate | Pass? |
+|---|------|-------|
+| I  | **Clean Code** — function names reveal intent; no functions mix abstraction levels; no flag arguments; no magic numbers/strings in planned code. | [ ] |
+| II | **Testing Standards** — plan lists JUnit 5 + Mockito unit tests (no Spring context) AND Postman tests for every endpoint; complex tests are planned wherever branching, state transitions, concurrency, or edge cases exist. | [ ] |
+| III| **Documentation Discipline** — plan calls out Javadoc on every new public method, README endpoint table updates, and (if startup changes) `run.md` updates. AI-assisted changes will record a `prompts.md` entry. | [ ] |
+| IV | **API Consistency** — where `README.md` defines a response template for an endpoint, that template (including status code and body shape) MUST be implemented exactly, even if it differs from default REST conventions. For endpoints without a README template: correct verbs and status codes (201/204/404/409/422), plural-noun paths, RFC 7807 errors, camelCase JSON / snake_case SQL, `<entity>Id` foreign-key naming, DTOs (never entities) at the controller boundary, and the canonical pagination envelope. Preferred libraries (Bean Validation, MapStruct, springdoc-openapi, Problem Details) are reused rather than re-invented. | [ ] |
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/002-users-crud/
-├── plan.md                # This file
-├── spec.md                # Feature specification
-├── research.md            # Phase 0 output
-├── data-model.md          # Phase 1 output (User entity + users table)
-├── quickstart.md          # Phase 1 output (verify the feature end-to-end)
-├── contracts/
-│   ├── users.openapi.yaml      # All 5 user endpoints
-│   └── pagination.md           # Canonical pagination envelope (project-wide)
-└── checklists/
-    └── requirements.md    # Spec-quality checklist (already passing)
+specs/[###-feature]/
+├── plan.md              # This file (/speckit-plan command output)
+├── research.md          # Phase 0 output (/speckit-plan command)
+├── data-model.md        # Phase 1 output (/speckit-plan command)
+├── quickstart.md        # Phase 1 output (/speckit-plan command)
+├── contracts/           # Phase 1 output (/speckit-plan command)
+└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
 ```
 
 ### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
 
 ```text
-issueflow-java/
-├── pom.xml                                    # +mapstruct, +mapstruct-processor, +spring-security-crypto
-└── src/
-    ├── main/
-    │   ├── java/com/att/tdp/issueflow/
-    │   │   ├── common/
-    │   │   │   ├── error/
-    │   │   │   │   ├── DuplicateResourceException.java   # NEW — domain ex for 409
-    │   │   │   │   ├── ErrorType.java                    # +DUPLICATE_RESOURCE constant
-    │   │   │   │   ├── GlobalExceptionHandler.java       # +handler for DuplicateResourceException
-    │   │   │   │   ├── NotFoundException.java            # NEW — domain ex for 404 from services
-    │   │   │   │   ├── ProblemDetailFactory.java         # (existing, unchanged)
-    │   │   │   ├── pagination/
-    │   │   │   │   ├── PagedResponse.java                # NEW — canonical envelope record<T>
-    │   │   │   │   └── package-info.java
-    │   │   │   ├── security/
-    │   │   │   │   └── PasswordEncoderConfiguration.java # NEW — BCryptPasswordEncoder @Bean
-    │   │   │   └── (existing health/, ClockConfiguration.java)
-    │   │   └── user/
-    │   │       ├── User.java                              # @Entity
-    │   │       ├── UserRepository.java                    # JpaRepository<User, Long>
-    │   │       ├── UserService.java                       # business logic
-    │   │       ├── UserController.java                    # @RestController
-    │   │       ├── UserMapper.java                        # MapStruct interface
-    │   │       ├── Role.java                              # enum
-    │   │       ├── dto/
-    │   │       │   ├── CreateUserRequest.java
-    │   │       │   ├── UpdateUserRequest.java
-    │   │       │   └── UserResponse.java
-    │   │       └── (existing package-info.java is replaced)
-    │   └── resources/
-    │       └── db/migration/
-    │           └── V2__users.sql                          # NEW — users table + functional unique indexes
-    └── test/
-        └── java/com/att/tdp/issueflow/user/
-            ├── UserServiceTest.java                       # pure JVM + Mockito
-            └── UserControllerTest.java                    # pure JVM + Mockito
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
+
+tests/
+├── contract/
+├── integration/
+└── unit/
+
+# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
+
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
+
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
+
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
-**Structure Decision**:
-
-- All user-feature code lives under `com.att.tdp.issueflow.user` — the
-  slice claimed by the package-by-feature decision in feature 001.
-- DTOs go in `user/dto/` to keep the slice root focused on the four
-  classes a reviewer typically wants first (`User`, `UserRepository`,
-  `UserService`, `UserController`).
-- Cross-cutting new pieces (the `PagedResponse` envelope, the
-  `BCryptPasswordEncoder` bean, the new domain exceptions) go under
-  `common/` so the next feature (tickets) inherits them.
-- `Role` is a top-level enum in `user/` — moving it later if a different
-  slice needs it is trivial.
-- Test mirroring is preserved: each production class with non-trivial
-  logic gets a sibling test class. `UserMapper` (MapStruct-generated)
-  and `User` (data carrier) are excluded — testing generated code or
-  field accessors adds maintenance cost without signal (Principle II).
+**Structure Decision**: [Document the selected structure and reference the real
+directories captured above]
 
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**
 
-No violations. Table intentionally empty.
-
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| — | — | — |
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

@@ -71,6 +71,17 @@ public final class ProblemDetailFactory {
   }
 
   /**
+   * Builds a 401 problem for authentication failures (bad credentials, expired token, etc.). The
+   * detail is intentionally generic — never reveals whether the username or password was wrong.
+   *
+   * @param detail per-occurrence explanation, safe to surface to clients
+   * @return a populated {@link ProblemDetail}
+   */
+  public static ProblemDetail unauthorized(String detail) {
+    return build(HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED, "Unauthorized", detail);
+  }
+
+  /**
    * Builds a 500 problem as a generic fallback.
    *
    * @param detail per-occurrence explanation; MUST NOT contain stack traces or secrets

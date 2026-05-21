@@ -1,5 +1,7 @@
 package com.att.tdp.issueflow.user;
 
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -7,6 +9,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * org.springframework.data.domain.Pageable} support.
  */
 public interface UserRepository extends JpaRepository<User, Long> {
+
+  /**
+   * Returns the user whose username matches case-insensitively. Used by {@code
+   * IssueFlowUserDetailsService} and auth endpoints to load the principal after token validation.
+   *
+   * @param username the username to look up (any casing accepted)
+   * @return an {@link Optional} containing the matching user, or empty if none found
+   */
+  Optional<User> findByUsernameIgnoreCase(String username);
 
   /**
    * Checks whether any user exists with a matching username, comparing case-insensitively.
