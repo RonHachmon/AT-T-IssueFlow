@@ -11,7 +11,7 @@ target/
 .settings
 .springBeans
 .sts4-cache
-
+skills-lock.json
 ### IntelliJ IDEA ###
 .idea
 *.iws

@@ -1,0 +1,266 @@
+{
+  "info": {
+    "name": "IssueFlow — Users",
+    "description": "User CRUD: create, get, list, update, delete, and error cases.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "00000000-0000-0000-0000-000000000004"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "{{baseUrl}}",
+      "type": "string"
+    },
+    {
+      "key": "createdUserId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create user — 200",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"alice\",\n  \"email\": \"alice@example.com\",\n  \"fullName\": \"Alice Doe\",\n  \"role\": \"DEVELOPER\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Body echoes username', function () {",
+              "  pm.expect(pm.response.json().username).to.eql('alice');",
+              "});",
+              "pm.test('Body shape matches README (no timestamps)', function () {",
+              "  pm.expect(pm.response.json()).to.have.all.keys('id','username','email','fullName','role');",
+              "});",
+              "pm.collectionVariables.set('createdUserId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get user by id — 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/{{createdUserId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users", "{{createdUserId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Body shape matches README', function () {",
+              "  pm.expect(pm.response.json()).to.have.all.keys('id','username','email','fullName','role');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List users — 200 plain array",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Body is a JSON array per README', function () {",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update user — POST /users/update/:userId — 200",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"role\": \"ADMIN\"\n}" },
+        "url": {
+          "raw": "{{baseUrl}}/users/update/{{createdUserId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users", "update", "{{createdUserId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Duplicate username — 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"ALICE\",\n  \"email\": \"other@example.com\",\n  \"fullName\": \"Other Person\",\n  \"role\": \"DEVELOPER\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"]
+        },
+        "description": "Run after 'Create user — 200'. ALICE (uppercase) collides case-insensitively with alice."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', function () { pm.response.to.have.status(409); });",
+              "pm.test('Body is problem+json with duplicate-resource type', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+              "  pm.expect(pm.response.json().type).to.include('duplicate-resource');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Malformed email — 422",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"bob\",\n  \"email\": \"not-an-email\",\n  \"fullName\": \"Bob\",\n  \"role\": \"DEVELOPER\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 422', function () { pm.response.to.have.status(422); });",
+              "pm.test('Body lists email as the failing field', function () {",
+              "  var errors = pm.response.json().errors;",
+              "  pm.expect(errors).to.be.an('array');",
+              "  var fields = errors.map(function (e) { return e.field; });",
+              "  pm.expect(fields).to.include('email');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get unknown id — 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/999999",
+          "host": ["{{baseUrl}}"],
+          "path": ["users", "999999"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', function () { pm.response.to.have.status(404); });",
+              "pm.test('Body is problem+json with not-found type', function () {",
+              "  pm.expect(pm.response.json().type).to.include('not-found');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete user — 200",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/{{createdUserId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users", "{{createdUserId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

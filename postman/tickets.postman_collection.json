@@ -1,0 +1,460 @@
+{
+  "info": {
+    "name": "IssueFlow — Tickets",
+    "description": "Ticket CRUD: create, get, list, update, status transitions, soft-delete, and error cases.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "00000000-0000-0000-0000-000000000006"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "{{baseUrl}}",
+      "type": "string"
+    },
+    {
+      "key": "createdTicketId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create ticket — valid -> 200",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Fix login bug\",\n  \"description\": \"Users cannot log in with SSO\",\n  \"priority\": \"HIGH\",\n  \"type\": \"BUG\",\n  \"projectId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Body has expected shape', function () { pm.expect(pm.response.json()).to.include.keys('id','title','status','priority','type','projectId','isOverdue'); });",
+              "pm.test('status is TODO', function () { pm.expect(pm.response.json().status).to.eql('TODO'); });",
+              "pm.test('isOverdue is false', function () { pm.expect(pm.response.json().isOverdue).to.be.false; });",
+              "pm.collectionVariables.set('createdTicketId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create ticket — missing title -> 422",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"priority\": \"HIGH\",\n  \"type\": \"BUG\",\n  \"projectId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 422', function () { pm.response.to.have.status(422); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create ticket — unknown projectId -> 404",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Test\",\n  \"priority\": \"LOW\",\n  \"type\": \"BUG\",\n  \"projectId\": 99999\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create ticket — invalid priority -> 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\": \"Test\", \"priority\": \"EXTREME\", \"type\": \"BUG\", \"projectId\": 1}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List tickets by projectId -> 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tickets?projectId=1",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"],
+          "query": [
+            { "key": "projectId", "value": "1" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response is an array', function () { pm.expect(pm.response.json()).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get ticket by ID — active -> 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('id matches', function () { pm.expect(String(pm.response.json().id)).to.eql(String(pm.collectionVariables.get('createdTicketId'))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update ticket — valid priority change -> 200",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"priority\": \"CRITICAL\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Body is empty', function () { pm.expect(pm.response.text()).to.be.empty; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transition: TODO -> IN_PROGRESS -> 200",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"IN_PROGRESS\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transition: IN_PROGRESS -> IN_REVIEW -> 200",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"IN_REVIEW\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backward transition (IN_REVIEW -> TODO) -> 409",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"TODO\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', function () { pm.response.to.have.status(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transition: IN_REVIEW -> DONE -> 200",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"DONE\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update DONE ticket — frozen -> 409",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"priority\": \"LOW\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', function () { pm.response.to.have.status(409); });",
+              "pm.test('detail contains frozen', function () { pm.expect(pm.response.json().detail).to.include('frozen'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete ticket -> 200",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Body is empty', function () { pm.expect(pm.response.text()).to.be.empty; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get ticket after delete -> 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{createdTicketId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{createdTicketId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "No auth -> 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets?projectId=1",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"],
+          "query": [
+            { "key": "projectId", "value": "1" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 401', function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
