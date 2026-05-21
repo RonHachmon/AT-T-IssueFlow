@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -158,6 +159,21 @@ public class GlobalExceptionHandler {
     problem.setProperty("errors", errors);
 
     return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(problem);
+  }
+
+  /**
+   * Maps Spring Security authentication failures (bad credentials, disabled account, etc.) to a 401
+   * problem. The detail is intentionally generic — never reveals whether the username or password
+   * was wrong.
+   *
+   * @param exception the authentication failure thrown by the authentication manager
+   * @return a 401 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(AuthenticationException.class)
+  public ResponseEntity<ProblemDetail> handleAuthenticationFailure(
+      AuthenticationException exception) {
+    ProblemDetail problem = ProblemDetailFactory.unauthorized("Invalid username or password.");
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
   }
 
   /**

@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -83,6 +84,21 @@ class GlobalExceptionHandlerTest {
     assertThat(problem.getStatus()).isEqualTo(404);
     assertThat(problem.getType().toString()).isEqualTo(ErrorType.NOT_FOUND);
     assertThat(problem.getDetail()).contains("api/unknown");
+  }
+
+  @Test
+  void returnsUnauthorizedProblemWhenCredentialsAreInvalid() {
+    BadCredentialsException exception = new BadCredentialsException("Bad credentials");
+
+    ResponseEntity<ProblemDetail> response = handler.handleAuthenticationFailure(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    ProblemDetail problem = response.getBody();
+    assertThat(problem).isNotNull();
+    assertThat(problem.getStatus()).isEqualTo(401);
+    assertThat(problem.getType().toString()).isEqualTo(ErrorType.UNAUTHORIZED);
+    assertThat(problem.getTitle()).isEqualTo("Unauthorized");
+    assertThat(problem.getDetail()).doesNotContain("Bad credentials");
   }
 
   @Test

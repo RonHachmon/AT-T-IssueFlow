@@ -27,6 +27,9 @@ public final class ErrorType {
   public static final String DUPLICATE_RESOURCE =
       "https://issueflow.att.com/problems/duplicate-resource";
 
+  /** 401 — authentication failed (bad credentials, expired token, etc.). */
+  public static final String UNAUTHORIZED = "https://issueflow.att.com/problems/unauthorized";
+
   /** 500 — generic fallback for unhandled internal failures. */
   public static final String INTERNAL_ERROR = "https://issueflow.att.com/problems/internal-error";
 
