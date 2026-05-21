@@ -1,0 +1,161 @@
+openapi: "3.1.0"
+
+info:
+  title: IssueFlow — Authentication API
+  version: "1.0.0"
+  description: >
+    JWT-based authentication contract for IssueFlow. All endpoints except
+    POST /auth/login require a valid Bearer token in the Authorization header.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: jdoe
+        password:
+          type: string
+          format: password
+          example: "secret"
+
+    TokenResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: Signed JWT — attach as Authorization header value after "Bearer "
+          example: "eyJhbGciOiJIUzI1NiJ9..."
+        tokenType:
+          type: string
+          enum: [Bearer]
+          example: Bearer
+        expiresIn:
+          type: integer
+          format: int64
+          description: Token lifetime in seconds derived from the configured TTL
+          example: 720
+
+    CurrentUserResponse:
+      type: object
+      required: [id, username, email, fullName, role]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: jdoe
+        email:
+          type: string
+          format: email
+          example: jdoe@example.com
+        fullName:
+          type: string
+          example: "John Doe"
+        role:
+          type: string
+          enum: [ADMIN, DEVELOPER]
+          example: DEVELOPER
+
+    ProblemDetail:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type:
+          type: string
+          format: uri
+          example: "https://issueflow.example.com/errors/unauthorized"
+        title:
+          type: string
+          example: Unauthorized
+        status:
+          type: integer
+          example: 401
+        detail:
+          type: string
+          example: "Invalid or expired credentials"
+
+paths:
+  /auth/login:
+    post:
+      summary: Obtain a JWT access token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authentication successful; returns a signed JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Missing or malformed request body
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Invalid username or password
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /auth/logout:
+    post:
+      summary: Logout (no-op in this phase)
+      operationId: logout
+      description: >
+        Stateless no-op. Returns 200 OK with an empty body. Token revocation
+        is deferred to the final auth phase.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logout acknowledged (token not actually invalidated)
+        "401":
+          description: No valid token present
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /auth/me:
+    get:
+      summary: Get current authenticated user
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Returns the profile of the currently authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserResponse"
+        "401":
+          description: No valid token present
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
