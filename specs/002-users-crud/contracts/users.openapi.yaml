@@ -1,0 +1,260 @@
+openapi: 3.1.0
+info:
+  title: IssueFlow Users API
+  version: 1.0.0
+  description: |
+    User-management endpoints for IssueFlow. No authentication is enforced
+    in this phase — every endpoint is open. Authn/authz arrives in a later
+    feature.
+
+    Errors follow RFC 7807 (`application/problem+json`); see the project's
+    [Problem Details contract](../../001-project-skeleton/contracts/problem-details.md).
+servers:
+  - url: http://localhost:8080
+    description: Local developer environment
+
+paths:
+  /users:
+    post:
+      operationId: createUser
+      summary: Create a new user.
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            examples:
+              valid:
+                summary: Valid request
+                value:
+                  username: alice
+                  email: alice@example.com
+                  fullName: Alice Doe
+                  role: DEVELOPER
+      responses:
+        "201":
+          description: User created.
+          headers:
+            Location:
+              required: true
+              schema: { type: string }
+              description: URI of the new user, e.g. `/users/42`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "409":
+          description: A user with the same username or email already exists.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetail" }
+        "422":
+          description: Validation failed on one or more fields.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ValidationProblem" }
+
+    get:
+      operationId: listUsers
+      summary: List users with pagination.
+      tags: [Users]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+          description: 0-indexed page number.
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+          description: Records per page (capped at 100).
+      responses:
+        "200":
+          description: One page of users.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PagedUsers" }
+
+  /users/{userId}:
+    parameters:
+      - in: path
+        name: userId
+        required: true
+        schema: { type: integer, format: int64 }
+
+    get:
+      operationId: getUserById
+      summary: Fetch one user.
+      tags: [Users]
+      responses:
+        "200":
+          description: The requested user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "404":
+          description: No user exists with that id.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetail" }
+
+    patch:
+      operationId: updateUser
+      summary: Partially update a user's fullName and/or role.
+      description: |
+        Username and email are immutable through this endpoint — a request
+        that includes either is rejected with 422. A request with no
+        modifiable fields set is also rejected with 422.
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            examples:
+              role-only:
+                summary: Promote to ADMIN
+                value: { role: ADMIN }
+              name-only:
+                summary: Fix a typo
+                value: { fullName: Alice Smith }
+      responses:
+        "204":
+          description: User updated; no body.
+        "404":
+          description: No user exists with that id.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetail" }
+        "422":
+          description: Validation failure or attempt to change an immutable field.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ValidationProblem" }
+
+    delete:
+      operationId: deleteUser
+      summary: Hard-delete a user.
+      tags: [Users]
+      responses:
+        "204":
+          description: User deleted; no body.
+        "404":
+          description: No user exists with that id.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetail" }
+
+components:
+  schemas:
+    Role:
+      type: string
+      enum: [ADMIN, DEVELOPER]
+      description: User role. Only two values; extending this set is a new feature.
+
+    CreateUserRequest:
+      type: object
+      required: [username, email, fullName, role]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: "^[a-zA-Z0-9._-]+$"
+          example: alice
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: alice@example.com
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Alice Doe
+        role:
+          $ref: "#/components/schemas/Role"
+
+    UpdateUserRequest:
+      type: object
+      description: |
+        At least one of `fullName` or `role` MUST be present. Including
+        any other field (e.g. `username`, `email`) is a 422.
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Alice Smith
+        role:
+          $ref: "#/components/schemas/Role"
+
+    UserResponse:
+      type: object
+      required: [id, username, email, fullName, role, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64, example: 42 }
+        username: { type: string, example: alice }
+        email: { type: string, format: email, example: alice@example.com }
+        fullName: { type: string, example: Alice Doe }
+        role: { $ref: "#/components/schemas/Role" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PagedUsers:
+      allOf:
+        - $ref: "#/components/schemas/PagedEnvelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/UserResponse" }
+
+    PagedEnvelope:
+      type: object
+      description: |
+        Canonical pagination envelope used by every list endpoint in this
+        project. See `contracts/pagination.md`.
+      required: [data, page, pageSize, total]
+      properties:
+        data:
+          type: array
+          items: {}
+        page:
+          type: integer
+          minimum: 0
+          description: 0-indexed page number.
+        pageSize:
+          type: integer
+          minimum: 1
+          description: Records per page (echoes the request, capped at 100).
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total number of records across all pages.
+
+    ProblemDetail:
+      type: object
+      required: [type, title, status, detail, instance]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri-reference }
+
+    ValidationProblem:
+      allOf:
+        - $ref: "#/components/schemas/ProblemDetail"
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                required: [field, message]
+                properties:
+                  field: { type: string, example: email }
+                  message: { type: string, example: must be a well-formed email address }

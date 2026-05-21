@@ -51,13 +51,23 @@ public final class ProblemDetailFactory {
   }
 
   /**
-   * Builds a 409 problem for state conflicts (duplicate resources, illegal transitions).
+   * Builds a 409 problem for state conflicts (illegal transitions, etc.).
    *
    * @param detail per-occurrence explanation
    * @return a populated {@link ProblemDetail}
    */
   public static ProblemDetail conflict(String detail) {
     return build(HttpStatus.CONFLICT, ErrorType.CONFLICT, "Conflict", detail);
+  }
+
+  /**
+   * Builds a 409 problem for duplicate-resource collisions (unique field already in use).
+   *
+   * @param detail per-occurrence explanation; SHOULD name the offending field and value
+   * @return a populated {@link ProblemDetail}
+   */
+  public static ProblemDetail duplicateResource(String detail) {
+    return build(HttpStatus.CONFLICT, ErrorType.DUPLICATE_RESOURCE, "Duplicate resource", detail);
   }
 
   /**

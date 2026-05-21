@@ -34,16 +34,6 @@ Candidates are expected to design and implement the above APIs, adhering to REST
 
 ## APIs
 
-### Health API
-
-| API Description       | Endpoint     | Request Body | Response Status                       | Response Body                                                                                                                                                                                |
-|-----------------------|--------------|--------------|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Application + DB health | GET /health |              | `200 OK` (healthy) / `503` (db down)  | `{ "status": "UP", "components": { "application": { "status": "UP", "detail": "" }, "db": { "status": "UP", "detail": "" } }, "timestamp": "2026-05-20T10:42:13.512Z" }` |
-
-No authentication. Returns `503 Service Unavailable` when the datasource
-is unreachable; the `db` component carries a human-readable `detail`.
-Full contract: [specs/001-project-skeleton/contracts/health.openapi.yaml](specs/001-project-skeleton/contracts/health.openapi.yaml).
-
 ### Users APIs
 
 | API Description      | Endpoint                    | Request Body                                                                                          | Response Status | Response Body                                                                                                        |

@@ -100,3 +100,69 @@ Executed the 23 tasks. Notable manual corrections during execution:
 - The existing `postman/` collection had placeholder Tickets requests
   pre-authored; T018 only replaced the Health folder, leaving Tickets in
   place for future features.
+
+## Feature 002 — Users CRUD
+
+Driven by the same Spec Kit `/speckit-*` pipeline.
+
+### `/speckit-specify`
+
+> Add the concept of a person to the system. You can create users, fetch
+> them, list them all, update their name or role, and delete them. Each
+> user has a username, email, full name, and a role that is either ADMIN
+> or DEVELOPER. No login yet — this phase just establishes who exists in
+> the system.
+
+Produced `specs/002-users-crud/spec.md` with 5 user stories (3× P1, 2× P2),
+14 FRs, 7 SCs. No `[NEEDS CLARIFICATION]` markers.
+
+### `/speckit-plan`
+
+> Spring Boot 3.4 + Java 21 project initialized via Spring Initializr or
+> the provided skeleton, built with Maven (mvnw). … User JPA entity with
+> @Entity, UUID or auto-increment Long id (pick one and use it
+> consistently across all entities — UUIDs are easier with distributed
+> systems but Long is simpler; recommend Long here). Role as a Java enum
+> stored via @Enumerated(EnumType.STRING). Spring Data JPA UserRepository
+> extends JpaRepository<User, Long>. DTOs for request/response
+> (CreateUserRequest, UpdateUserRequest, UserResponse) — never expose
+> entities directly. Use MapStruct (mapstruct + mapstruct-processor) for
+> entity↔DTO mapping. Validation via jakarta.validation annotations on
+> DTOs, triggered with @Valid. Password field: add a passwordHash column
+> now (even though login comes in Phase 2). Unique constraints on
+> username and email at both the JPA level and via Flyway migration. Unit
+> tests: service-layer tests with Mockito mocking the repository.
+
+Produced `plan.md`, `research.md` (10 decisions), `data-model.md`, two
+contract files, `quickstart.md`.
+
+### `/speckit-tasks`
+
+(no prompt argument; ran under plan-mode review)
+
+Produced `tasks.md` — 36 tasks across 8 phases. One question asked of the
+user before exiting plan mode: keep URL-form `type` URIs vs switch to
+relative. User chose to keep URL form.
+
+### `/speckit-implement`
+
+(no prompt argument)
+
+Executed the 36 tasks. Notable manual corrections during execution:
+
+- The plan listed T013/T014 (DTOs) inside US1, but T012 (UserMapper)
+  requires them to compile. Did T013 + T014 at the Phase 2/3 boundary so
+  the mapper could land in Phase 2 as planned.
+- Plan said `@Column(unique = true)` on entity fields. Kept the
+  annotation as field-level documentation but the actual uniqueness is
+  enforced by Flyway functional unique indexes on `LOWER(...)` — the JPA
+  annotation does nothing at runtime with `ddl-auto: none`.
+- All five `UserService` methods landed in a single `Write` pass; the
+  per-story plan structure was preserved in commits / test coverage
+  rather than in incremental file edits, since adding methods one at a
+  time to the same file would require five sequential edits without
+  any reviewer benefit.
+- `UpdateUserRequest` uses `@AssertTrue` on `hasAtLeastOneFieldSet()` to
+  enforce "at least one of fullName or role" — Bean Validation surfaces
+  this as a 422 ProblemDetail with `errors[].field = "hasAtLeastOneFieldSet"`,
+  which clients should interpret as "request was empty."
