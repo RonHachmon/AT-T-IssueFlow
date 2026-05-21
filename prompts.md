@@ -226,3 +226,61 @@ Executed all 25 tasks. Notable implementation notes:
 - Unit tests are pure JVM: `JwtServiceTest` constructs `JwtService` directly
   with a test `JwtProperties`; `IssueFlowUserDetailsServiceTest` mocks
   `UserRepository` with Mockito.
+
+## Feature 004 — Projects CRUD
+
+Model: **claude-sonnet-4-6** via Claude Code (VS Code extension), 2026-05-21.
+Driven by the same Spec Kit `/speckit-*` pipeline.
+
+### `/speckit-specify`
+
+> Add the concept of a project to the system. Users can create projects,
+> fetch a single project, list all active projects, update a project's name
+> or description, and soft-delete it. Each project has a name (unique
+> among active projects, case-insensitive), an optional description, and
+> an owner (an existing user). Deletion is soft: a deleted_at timestamp
+> is set, and deleted projects are invisible to all standard reads.
+
+Produced `specs/004-projects-crud/spec.md` with 4 user stories (2× P1, 2× P2).
+
+### `/speckit-plan`
+
+> Spring Boot 3.4 + Java 21. No new dependencies — Spring Data JPA,
+> MapStruct, Bean Validation already in pom.xml. New Flyway migration
+> V5__projects.sql: projects table with id, name, description, owner_id
+> (FK → users), created_at, updated_at, deleted_at; partial unique index
+> ux_projects_name_active ON projects(LOWER(name)) WHERE deleted_at IS NULL.
+> Project entity with @ManyToOne(fetch=LAZY) owner. ProjectMapper via
+> MapStruct: toEntity takes both CreateProjectRequest and resolved User
+> to keep mapper free of repository calls. All five endpoints return 200 OK
+> per the README Projects APIs table (canonical template overrides default
+> REST conventions).
+
+Produced `plan.md`, `research.md`, `data-model.md`,
+`contracts/projects.openapi.yaml`, `quickstart.md`.
+
+### `/speckit-tasks`
+
+(no prompt argument)
+
+Produced `tasks.md` — 25 tasks across 7 phases organized by user story
+with explicit `[P]` parallel markers and dependency graph.
+
+### `/speckit-implement`
+
+(no prompt argument)
+
+Executed all 25 tasks. Notable implementation notes:
+
+- `ProjectService` and `ProjectController` were written in full in a single
+  pass rather than incrementally by user story, since all methods target the
+  same files and sequential edits add no reviewer benefit.
+- `ProjectMapper.toEntity` takes two parameters (`CreateProjectRequest` +
+  resolved `User`) — MapStruct multi-source mapping with explicit `@Mapping`
+  for each server-managed field (id, createdAt, updatedAt, deletedAt).
+- `UpdateProjectRequest` uses `@AssertTrue` on `hasAtLeastOneFieldSet()` to
+  reject empty `{}` bodies; Bean Validation surfaces this as a 400.
+- All reads use `findByIdAndDeletedAtIsNull` — soft-deleted projects are
+  invisible at the repository boundary, not filtered in the service layer.
+- The Postman Projects folder uses `pm.collectionVariables.set('createdProjectId', ...)`
+  to pass the created id across requests (create → get → update → delete → re-delete).
