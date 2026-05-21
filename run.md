@@ -116,6 +116,54 @@ edits needed to retarget the database:
 | `SPRING_DATASOURCE_USERNAME` | `issueflow`                                     |
 | `SPRING_DATASOURCE_PASSWORD` | `issueflow`                                     |
 
+## JWT Authentication
+
+### Required environment variable
+
+| Variable                  | Required | Description                                          |
+|---------------------------|----------|------------------------------------------------------|
+| `APP_SECURITY_JWT_SECRET` | **Yes**  | HS256 signing key — minimum 32 characters            |
+
+Generate a secure secret:
+
+```bash
+openssl rand -hex 32
+```
+
+Set the variable before starting the app:
+
+```bash
+# macOS/Linux
+export APP_SECURITY_JWT_SECRET=$(openssl rand -hex 32)
+./mvnw spring-boot:run
+
+# Windows PowerShell
+$env:APP_SECURITY_JWT_SECRET = (openssl rand -hex 32)
+.\mvnw.cmd spring-boot:run
+```
+
+The default fallback (`change-me-in-production-use-32-plus-chars`) is intentionally weak and must
+not be used outside local development.
+
+### Token lifetime
+
+Tokens expire after **12 minutes** by default. Override with:
+
+```yaml
+app.security.jwt.access-token-ttl: PT30M   # 30 minutes
+```
+
+### Seed users (development only)
+
+The Flyway migration `V3__seed_test_users.sql` inserts two users on first startup:
+
+| Username    | Password     | Role        |
+|-------------|--------------|-------------|
+| `admin`     | `Admin1234!` | `ADMIN`     |
+| `developer` | `Dev1234!`   | `DEVELOPER` |
+
+These users are created with `ON CONFLICT DO NOTHING` — safe to run against an existing database.
+
 ## Troubleshooting
 
 | Symptom                                              | Likely cause                                              | Fix                                                                |
