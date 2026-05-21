@@ -284,3 +284,64 @@ Executed all 25 tasks. Notable implementation notes:
   invisible at the repository boundary, not filtered in the service layer.
 - The Postman Projects folder uses `pm.collectionVariables.set('createdProjectId', ...)`
   to pass the created id across requests (create → get → update → delete → re-delete).
+
+## Feature 005 — Tickets CRUD
+
+Model: **claude-sonnet-4-6** via Claude Code (VS Code extension), 2026-05-21.
+Driven by the same Spec Kit `/speckit-*` pipeline.
+
+### `/speckit-specify`
+
+> Add full CRUD for tickets — the core work items belonging to projects.
+> POST /tickets creates a ticket (status defaults to TODO). GET /tickets?projectId=
+> lists active tickets for a project. GET /tickets/{ticketId} fetches one ticket.
+> PATCH /tickets/{ticketId} handles both field updates and forward-only status
+> transitions (TODO→IN_PROGRESS→IN_REVIEW→DONE). DONE tickets are frozen — no
+> further updates or transitions. DELETE /tickets/{ticketId} soft-deletes.
+> Concurrent PATCH conflicts use JPA @Version optimistic locking (409).
+
+Produced `specs/005-tickets-crud/spec.md` with 5 user stories (2× P1, 2× P2, 1× P3).
+
+### `/speckit-plan`
+
+> Spring Boot 3.4 + Java 21. No new dependencies — all required libraries
+> already in pom.xml. New Flyway migration V6__tickets.sql: tickets table with
+> version column for optimistic locking and partial index on (project_id, id)
+> WHERE deleted_at IS NULL. TicketStatus enum uses ordinal() for forward-only
+> transition enforcement. UpdateTicketRequest uses Optional<Long> for assigneeId
+> to distinguish "absent" (leave unchanged) from "null" (clear assignee).
+> All five endpoints return 200 OK per the README Tickets APIs table.
+> GET /tickets?projectId= returns a plain array (no pagination) per research Decision 7.
+
+Produced `plan.md`, `research.md`, `data-model.md`,
+`contracts/tickets.openapi.yaml`, `quickstart.md`.
+
+### `/speckit-tasks`
+
+(no prompt argument)
+
+Produced `tasks.md` — 31 tasks across 8 phases organized by user story
+(US1–US5) with explicit `[P]` parallel markers and a full dependency graph.
+
+### `/speckit-implement`
+
+(no prompt argument)
+
+Executed all 31 tasks. Notable implementation notes:
+
+- All five service methods and both controller files were written in full
+  in single passes rather than incrementally, since they target the same
+  files and sequential edits add no reviewer benefit.
+- `TicketMapper.toEntity` needed an explicit `@Mapping(target="description",
+  source="request.description")` because both `CreateTicketRequest` and
+  `Project` have a `description` field — MapStruct reports ambiguity without it.
+- `UpdateTicketRequest` uses `Optional<Long>` for `assigneeId` with Jackson's
+  JDK8 module: absent key → null Optional (leave unchanged); explicit null →
+  Optional.empty() (clear assignee); value → Optional.of(id) (reassign).
+- `TicketStatus.isImmediateSuccessor()` uses `ordinal()` arithmetic — safe
+  because the four-value enum is sealed and the sequence is a fixed domain invariant.
+- `GlobalExceptionHandler` gained two new handlers: `InvalidStateTransitionException`
+  → 409 Conflict (surfaces exception message directly); `ObjectOptimisticLockingFailureException`
+  → 409 Conflict (generic "fetch and retry" message).
+- Spotless applied after writing all files to normalise line endings (Windows
+  \r\n → Unix \n) as required by the Google Java Format check.
