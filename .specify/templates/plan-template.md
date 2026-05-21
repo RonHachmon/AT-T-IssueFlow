@@ -31,7 +31,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Check each gate against `.specify/memory/constitution.md` (v1.0.0). For any
+Check each gate against `.specify/memory/constitution.md` (v1.1.0). For any
 "No", either fix the design or record a justification in **Complexity
 Tracking** below.
 
@@ -40,7 +40,7 @@ Tracking** below.
 | I  | **Clean Code** — function names reveal intent; no functions mix abstraction levels; no flag arguments; no magic numbers/strings in planned code. | [ ] |
 | II | **Testing Standards** — plan lists JUnit 5 + Mockito unit tests (no Spring context) AND Postman tests for every endpoint; complex tests are planned wherever branching, state transitions, concurrency, or edge cases exist. | [ ] |
 | III| **Documentation Discipline** — plan calls out Javadoc on every new public method, README endpoint table updates, and (if startup changes) `run.md` updates. AI-assisted changes will record a `prompts.md` entry. | [ ] |
-| IV | **API Consistency** — new endpoints use correct verbs and status codes (201/204/404/409/422), plural-noun paths, RFC 7807 errors, camelCase JSON / snake_case SQL, `<entity>Id` foreign-key naming, DTOs (never entities) at the controller boundary, and the canonical pagination envelope. Preferred libraries (Bean Validation, MapStruct, springdoc-openapi, Problem Details) are reused rather than re-invented. | [ ] |
+| IV | **API Consistency** — where `README.md` defines a response template for an endpoint, that template (including status code and body shape) MUST be implemented exactly, even if it differs from default REST conventions. For endpoints without a README template: correct verbs and status codes (201/204/404/409/422), plural-noun paths, RFC 7807 errors, camelCase JSON / snake_case SQL, `<entity>Id` foreign-key naming, DTOs (never entities) at the controller boundary, and the canonical pagination envelope. Preferred libraries (Bean Validation, MapStruct, springdoc-openapi, Problem Details) are reused rather than re-invented. | [ ] |
 
 ## Project Structure
 

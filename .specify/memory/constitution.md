@@ -1,45 +1,40 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version: (none) -> 1.0.0
-Bump rationale: Initial ratification. All template placeholders replaced with
-concrete principles, so this is the project's first canonical version (1.0.0,
-MAJOR=1 by semver convention for a first ratified version).
+Version: 1.0.0 -> 1.1.0
+Bump rationale: MINOR — new binding rule added to Principle IV specifying that
+README.md endpoint response templates are canonical and take precedence over
+general REST conventions wherever they conflict.
 
-Modified principles (template placeholder -> ratified principle):
-  - [PRINCIPLE_1_NAME] -> I. Clean Code
-  - [PRINCIPLE_2_NAME] -> II. Testing Standards
-  - [PRINCIPLE_3_NAME] -> III. Documentation Discipline
-  - [PRINCIPLE_4_NAME] -> IV. API Consistency
-  - [PRINCIPLE_5_NAME] -> (intentionally omitted; user requested 4 principles)
+Modified principles:
+  - IV. API Consistency: added "README response templates are canonical" rule
+    that overrides the general HTTP verb/status-code conventions when the README
+    defines a specific template for an endpoint.
 
 Added sections:
-  - Technology Standards (concrete stack constraints derived from pom.xml + user input)
-  - Development Workflow (PR gates that enforce the four principles)
-  - Governance (amendment + versioning policy)
+  - None (rule added inside existing Principle IV)
 
 Removed sections:
-  - Generic placeholder section_2 / section_3 (replaced with concrete sections above)
-  - 5th principle slot (user spec uses 4 principles)
+  - None
 
 Templates / docs status:
   - [OK]      .specify/memory/constitution.md (this file)
-  - [OK]      .specify/templates/plan-template.md (Constitution Check section populated with four gates)
-  - [PENDING] .specify/templates/tasks-template.md - template still labels tests
-              "OPTIONAL"; our constitution makes sanity tests MANDATORY and complex
-              tests MANDATORY where branching/state/concurrency exists. Update at
-              next tasks-template revision.
-  - [PENDING] .specify/templates/spec-template.md - no edits required today; spec
-              stays user-facing, but reviewers should reject specs that contradict
-              REST conventions in Principle IV.
-  - [PENDING] README.md - several endpoints document "200 OK" for POST/DELETE;
-              Principle IV requires 201/204. Reconcile when those endpoints are
-              implemented (not retroactively, but new endpoints MUST comply).
-  - [PENDING] CLAUDE.md - currently a stub; add a "Constitution" pointer when
+  - [OK]      .specify/templates/plan-template.md — Gate IV already references
+              constitution v1.0.0; reviewers should now also verify README
+              template compliance as part of that gate. No structural edit
+              needed; the gate text is broad enough to cover this.
+  - [PENDING] .specify/templates/tasks-template.md — Tests are still labelled
+              "OPTIONAL"; constitution requires mandatory sanity tests and
+              mandatory complex tests. Update at next tasks-template revision.
+  - [PENDING] .specify/templates/spec-template.md — No edits required today.
+  - [NOTE]    README.md — many endpoints show "200 OK" for POST/DELETE. Under
+              the new rule these are now accepted-by-design, not defects.
+              Implementors MUST match those status codes exactly.
+  - [PENDING] CLAUDE.md — still a stub; add a "Constitution" pointer when
               runtime guidance is expanded.
 
 Follow-up TODOs:
-  - None. Ratification date set to 2026-05-20 (today).
+  - None. Amendment date set to 2026-05-21.
 -->
 
 # IssueFlow Constitution
@@ -129,7 +124,14 @@ dishonest docs cost more than no docs at all, because they mislead.
 The HTTP surface follows REST conventions strictly. Reviewers MUST cite this
 principle when rejecting deviations.
 
-- **HTTP verbs and status codes**:
+- **README response templates are canonical.** Where `README.md` defines a
+  specific response template for an endpoint (verb, path, status code, body
+  shape), that template MUST be implemented exactly as written, even when it
+  differs from the general conventions listed below. A README-defined template
+  represents an accepted-by-design decision — do NOT "fix" it to match the
+  generic rules. When no README template exists for an endpoint, the general
+  conventions below apply.
+- **HTTP verbs and status codes** *(default when README does not override)*:
   - `POST` that creates a resource -> `201 Created` with a `Location` header
   - `DELETE` and `PATCH`/`PUT` with no response body -> `204 No Content`
   - Missing resource -> `404 Not Found`
@@ -161,8 +163,9 @@ principle when rejecting deviations.
 
 **Rationale**: Consistency is the only thing that makes a REST API
 discoverable. Once a client has learned one endpoint, they should be able to
-predict the rest. Inconsistent status codes and error shapes turn every
-endpoint into a separate learning task for callers.
+predict the rest. The README tables represent the agreed external contract;
+following them exactly — even when they use non-standard status codes — ensures
+the implementation matches the specification clients were given.
 
 ## Technology Standards
 
@@ -236,4 +239,4 @@ re-validate against this file (see plan-template Constitution Check gates).
 Runtime development guidance lives in `CLAUDE.md` and `run.md`; both MUST stay
 aligned with this constitution.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-20 | **Last Amended**: 2026-05-20
+**Version**: 1.1.0 | **Ratified**: 2026-05-20 | **Last Amended**: 2026-05-21
