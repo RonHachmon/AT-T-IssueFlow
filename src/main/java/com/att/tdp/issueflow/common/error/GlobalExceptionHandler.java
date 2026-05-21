@@ -4,8 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -83,6 +88,79 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Maps service-thrown not-found exceptions to a 404 problem naming the missing resource and id.
+   *
+   * @param exception the not-found exception raised by a service
+   * @return a 404 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(NotFoundException.class)
+  public ResponseEntity<ProblemDetail> handleNotFound(NotFoundException exception) {
+    String detail = exception.getResource() + " " + exception.getResourceId() + " does not exist";
+    ProblemDetail problem = ProblemDetailFactory.notFound(detail);
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
+  }
+
+  /**
+   * Maps service-thrown duplicate-resource exceptions to a 409 problem naming the offending field
+   * and value.
+   *
+   * @param exception the duplicate-resource exception raised by a service
+   * @return a 409 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(DuplicateResourceException.class)
+  public ResponseEntity<ProblemDetail> handleDuplicateResource(
+      DuplicateResourceException exception) {
+    String detail = exception.getField() + " '" + exception.getValue() + "' is already in use";
+    ProblemDetail problem = ProblemDetailFactory.duplicateResource(detail);
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+  }
+
+  /**
+   * Race-condition safety net for unique-constraint violations that slip past application-level
+   * pre-checks. Maps to a 409 with a generic message; the SQL fragment is logged but never surfaced
+   * in the response body.
+   *
+   * @param exception the JPA/JDBC integrity violation
+   * @return a 409 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ResponseEntity<ProblemDetail> handleDataIntegrityViolation(
+      DataIntegrityViolationException exception) {
+    log.warn("Data integrity violation", exception);
+    ProblemDetail problem =
+        ProblemDetailFactory.duplicateResource("A unique field collides with an existing record.");
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+  }
+
+  /**
+   * Maps Bean Validation failures on path variables or query parameters (raised by
+   * {@code @Validated} on the controller class) to a 422 problem with an {@code errors} extension
+   * array.
+   *
+   * @param exception the constraint-violation exception
+   * @return a 422 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(ConstraintViolationException.class)
+  public ResponseEntity<ProblemDetail> handleConstraintViolation(
+      ConstraintViolationException exception) {
+    List<Map<String, String>> errors = new ArrayList<>();
+    for (ConstraintViolation<?> violation : exception.getConstraintViolations()) {
+      errors.add(
+          Map.of(
+              "field",
+              lastPathNode(violation.getPropertyPath()),
+              "message",
+              violation.getMessage()));
+    }
+
+    ProblemDetail problem =
+        ProblemDetailFactory.validationFailed("One or more parameters failed validation.");
+    problem.setProperty("errors", errors);
+
+    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(problem);
+  }
+
+  /**
    * Catch-all for any otherwise-unhandled exception. Logs the stack server-side and surfaces a
    * sanitized 500 problem; never leaks stack frames or secrets in the response body.
    *
@@ -94,5 +172,13 @@ public class GlobalExceptionHandler {
     log.error("Unhandled exception", exception);
     ProblemDetail problem = ProblemDetailFactory.internalError("An unexpected error occurred.");
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
+  }
+
+  private static String lastPathNode(Path path) {
+    String result = "";
+    for (Path.Node node : path) {
+      result = node.getName();
+    }
+    return result;
   }
 }

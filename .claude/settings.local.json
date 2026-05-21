@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(& .specify/extensions/git/scripts/powershell/create-new-feature.ps1 -Json -ShortName \"users-crud\" \"Users CRUD: create, read, list, update, delete\")",
+      "PowerShell(& .specify/scripts/powershell/setup-plan.ps1 -Json)"
+    ]
+  }
+}

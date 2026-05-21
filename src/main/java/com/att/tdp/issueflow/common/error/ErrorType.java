@@ -23,6 +23,10 @@ public final class ErrorType {
   /** 409 — conflict with current state (duplicate resource, illegal state transition). */
   public static final String CONFLICT = "https://issueflow.att.com/problems/conflict";
 
+  /** 409 — a unique field collides with an existing record. */
+  public static final String DUPLICATE_RESOURCE =
+      "https://issueflow.att.com/problems/duplicate-resource";
+
   /** 500 — generic fallback for unhandled internal failures. */
   public static final String INTERNAL_ERROR = "https://issueflow.att.com/problems/internal-error";
 
