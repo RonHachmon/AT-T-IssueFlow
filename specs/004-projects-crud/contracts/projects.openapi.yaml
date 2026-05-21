@@ -1,0 +1,240 @@
+openapi: "3.1.0"
+info:
+  title: IssueFlow Projects API
+  version: "1.0.0"
+  description: |
+    Projects are top-level containers that group related tickets.
+    All endpoints require a valid Bearer token (JWT) in the Authorization header.
+    Soft-deleted projects are invisible to all standard endpoints.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /projects:
+    get:
+      summary: List all active projects
+      operationId: listProjects
+      tags: [Projects]
+      responses:
+        "200":
+          description: All active (non-deleted) projects ordered by id ascending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectResponse"
+              example:
+                - id: 1
+                  name: "Backend Rewrite"
+                  description: "Modernise the service layer"
+                  ownerId: 5
+                - id: 2
+                  name: "Mobile App"
+                  description: null
+                  ownerId: 3
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Create a project
+      operationId: createProject
+      tags: [Projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+            example:
+              name: "Backend Rewrite"
+              description: "Modernise the service layer"
+              ownerId: 5
+      responses:
+        "200":
+          description: Project created — 200 OK per README contract
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+              example:
+                id: 1
+                name: "Backend Rewrite"
+                description: "Modernise the service layer"
+                ownerId: 5
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /projects/{projectId}:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        example: 1
+
+    get:
+      summary: Fetch a single active project
+      operationId: getProjectById
+      tags: [Projects]
+      responses:
+        "200":
+          description: The requested project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+              example:
+                id: 1
+                name: "Backend Rewrite"
+                description: "Modernise the service layer"
+                ownerId: 5
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update a project's name and/or description
+      operationId: updateProject
+      tags: [Projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+            example:
+              name: "New Name"
+              description: "Updated description"
+      responses:
+        "200":
+          description: Update applied — 200 OK with empty body per README contract
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Soft-delete a project
+      operationId: softDeleteProject
+      tags: [Projects]
+      responses:
+        "200":
+          description: Project soft-deleted — 200 OK with empty body per README contract
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ProjectResponse:
+      type: object
+      required: [id, name, ownerId]
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Server-assigned identifier
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        ownerId:
+          type: integer
+          format: int64
+          description: ID of the owning user
+
+    CreateProjectRequest:
+      type: object
+      required: [name, ownerId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Project name, unique among active projects (case-insensitive)
+        description:
+          type: string
+          nullable: true
+        ownerId:
+          type: integer
+          format: int64
+          description: ID of an existing user who will own this project
+
+    UpdateProjectRequest:
+      type: object
+      description: At least one field must be non-null
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          nullable: true
+        description:
+          type: string
+          nullable: true
+
+    ProblemDetail:
+      type: object
+      description: RFC 7807 Problem Details
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Validation failure (missing/invalid field)
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+    NotFound:
+      description: Project or owner user not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+    Conflict:
+      description: A project with this name already exists
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
