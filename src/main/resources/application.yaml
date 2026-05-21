@@ -37,3 +37,9 @@ management:
       show-details: always
       probes:
         enabled: true
+
+app:
+  security:
+    jwt:
+      secret: ${APP_SECURITY_JWT_SECRET:change-me-in-production-use-32-plus-chars}
+      access-token-ttl: PT12M
