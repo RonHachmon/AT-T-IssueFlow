@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -174,6 +175,37 @@ public class GlobalExceptionHandler {
       AuthenticationException exception) {
     ProblemDetail problem = ProblemDetailFactory.unauthorized("Invalid username or password.");
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
+  }
+
+  /**
+   * Maps invalid ticket-state transition attempts and modifications to frozen DONE tickets to a 409
+   * problem. The exception message is surfaced directly as the detail — it is always intentionally
+   * human-readable.
+   *
+   * @param exception the invalid-transition exception raised by the ticket service
+   * @return a 409 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(InvalidStateTransitionException.class)
+  public ResponseEntity<ProblemDetail> handleInvalidTransition(
+      InvalidStateTransitionException exception) {
+    ProblemDetail problem = ProblemDetailFactory.conflict(exception.getMessage());
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+  }
+
+  /**
+   * Maps JPA optimistic-lock failures (concurrent writes to the same ticket version) to a 409
+   * problem. Clients should fetch the latest version and retry.
+   *
+   * @param exception the optimistic-lock failure raised by JPA
+   * @return a 409 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+  public ResponseEntity<ProblemDetail> handleOptimisticLock(
+      ObjectOptimisticLockingFailureException exception) {
+    ProblemDetail problem =
+        ProblemDetailFactory.conflict(
+            "Ticket was modified concurrently. Fetch the latest version and retry.");
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
   }
 
   /**
