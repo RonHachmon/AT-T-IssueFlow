@@ -11,11 +11,11 @@ import com.att.tdp.issueflow.user.User;
 import com.att.tdp.issueflow.user.UserRepository;
 
 /**
- * Seeds development/test users on startup. Skipped in the {@code prod} profile.
- * Passwords are encoded at runtime via the application's {@link PasswordEncoder},
- * so no manual BCrypt hash generation is needed.
+ * Seeds development/test users on startup. Skipped in the {@code prod} profile. Passwords are
+ * encoded at runtime via the application's {@link PasswordEncoder}, so no manual BCrypt hash
+ * generation is needed.
  *
- * <p>Credentials: admin / Admin1234!  and  developer / Dev1234!
+ * <p>Credentials: admin / Admin1234! and developer / Dev1234!
  */
 @Component
 @Profile("!prod")
