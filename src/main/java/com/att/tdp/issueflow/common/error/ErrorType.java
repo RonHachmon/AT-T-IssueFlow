@@ -33,6 +33,13 @@ public final class ErrorType {
   /** 403 — caller is authenticated but not permitted to perform the requested action. */
   public static final String FORBIDDEN = "https://issueflow.att.com/problems/forbidden";
 
+  /** 413 — uploaded file exceeds the maximum allowed size. */
+  public static final String FILE_TOO_LARGE = "https://issueflow.att.com/problems/file-too-large";
+
+  /** 415 — uploaded file's MIME type is not permitted. */
+  public static final String UNSUPPORTED_FILE_TYPE =
+      "https://issueflow.att.com/problems/unsupported-file-type";
+
   /** 500 — generic fallback for unhandled internal failures. */
   public static final String INTERNAL_ERROR = "https://issueflow.att.com/problems/internal-error";
 

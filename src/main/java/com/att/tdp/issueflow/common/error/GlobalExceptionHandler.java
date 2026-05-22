@@ -23,6 +23,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -274,6 +275,46 @@ public class GlobalExceptionHandler {
         "Invalid value '" + exception.getValue() + "' for parameter '" + exception.getName() + "'";
     ProblemDetail problem = ProblemDetailFactory.malformedRequest(detail);
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+  }
+
+  /**
+   * Maps service-layer file-too-large rejections to a 413 problem.
+   *
+   * @param exception the file-too-large exception raised by the attachment service
+   * @return a 413 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(FileTooLargeException.class)
+  public ResponseEntity<ProblemDetail> handleFileTooLarge(FileTooLargeException exception) {
+    ProblemDetail problem = ProblemDetailFactory.fileTooLarge(exception.getMessage());
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(problem);
+  }
+
+  /**
+   * Maps Spring's multipart size guard to a 413 problem. Fired before the controller is reached
+   * when the request body exceeds the configured {@code max-file-size} or {@code max-request-size}.
+   *
+   * @param exception the multipart-size-exceeded exception raised by Spring
+   * @return a 413 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ProblemDetail> handleMaxUploadSizeExceeded(
+      MaxUploadSizeExceededException exception) {
+    ProblemDetail problem =
+        ProblemDetailFactory.fileTooLarge("Upload exceeds the server's maximum allowed size.");
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(problem);
+  }
+
+  /**
+   * Maps unsupported MIME type rejections (declared or Tika-detected) to a 415 problem.
+   *
+   * @param exception the unsupported-file-type exception raised by the attachment service
+   * @return a 415 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(UnsupportedFileTypeException.class)
+  public ResponseEntity<ProblemDetail> handleUnsupportedFileType(
+      UnsupportedFileTypeException exception) {
+    ProblemDetail problem = ProblemDetailFactory.unsupportedFileType(exception.getMessage());
+    return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(problem);
   }
 
   /**
