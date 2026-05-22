@@ -1,0 +1,305 @@
+openapi: "3.0.3"
+info:
+  title: IssueFlow – Ticket Comments API
+  version: "1.0.0"
+  description: >
+    CRUD operations for comments on a ticket.
+    All endpoints require a valid JWT bearer token.
+    Status codes follow the project-wide convention: 200 OK for all successful
+    responses (including create and delete), consistent with the README API table.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Comments
+    description: Discussion threads on tickets
+
+paths:
+
+  /tickets/{ticketId}/comments:
+
+    get:
+      summary: List comments on a ticket
+      operationId: listComments
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated list of comments ordered by createdAt ascending.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedCommentResponse"
+        "401":
+          description: Missing or invalid JWT token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Ticket not found or soft-deleted.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+    post:
+      summary: Post a comment on a ticket
+      operationId: createComment
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentRequest"
+            example:
+              content: "We should prioritise this fix."
+      responses:
+        "200":
+          description: Comment created. Returns the new comment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentResponse"
+        "400":
+          description: Validation failure — content is blank or missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Missing or invalid JWT token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Ticket or author not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /tickets/{ticketId}/comments/{commentId}:
+
+    patch:
+      summary: Edit a comment
+      operationId: updateComment
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommentRequest"
+            example:
+              content: "Revised: this is now a critical regression."
+              version: 0
+      responses:
+        "200":
+          description: Comment updated. Returns the updated comment with incremented version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentResponse"
+        "400":
+          description: Validation failure — content blank or version missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Missing or invalid JWT token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Comment not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: >
+            Stale version — the comment was modified since the client last read it.
+            Re-fetch the comment, incorporate the changes, and retry.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+    delete:
+      summary: Delete a comment
+      operationId: deleteComment
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Comment deleted.
+        "401":
+          description: Missing or invalid JWT token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Comment not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    CreateCommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: The comment text. Must not be blank.
+
+    UpdateCommentRequest:
+      type: object
+      required: [content, version]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: The new comment text. Must not be blank.
+        version:
+          type: integer
+          format: int64
+          description: >
+            The version of the comment the client last read.
+            If this does not match the current stored version,
+            the request is rejected with 409 Conflict.
+
+    CommentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        content:
+          type: string
+        ticketId:
+          type: integer
+          format: int64
+        authorId:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+    PagedCommentResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommentResponse"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+
+    ProblemDetail:
+      type: object
+      description: RFC 7807 problem detail.
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri

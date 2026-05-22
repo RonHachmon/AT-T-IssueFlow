@@ -82,6 +82,16 @@ public final class ProblemDetailFactory {
   }
 
   /**
+   * Builds a 403 problem for authorization failures (authenticated caller lacks permission).
+   *
+   * @param detail per-occurrence explanation, safe to surface to clients
+   * @return a populated {@link ProblemDetail}
+   */
+  public static ProblemDetail forbidden(String detail) {
+    return build(HttpStatus.FORBIDDEN, ErrorType.FORBIDDEN, "Forbidden", detail);
+  }
+
+  /**
    * Builds a 500 problem as a generic fallback.
    *
    * @param detail per-occurrence explanation; MUST NOT contain stack traces or secrets
