@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: IssueFlow — Audit Log API
+  version: 1.0.0
+  description: |
+    Read-only endpoint for the immutable audit log. Restricted to callers with the
+    `ADMIN` authority. The response shape matches the canonical README template
+    exactly: a plain JSON array (not the project's `PagedResponse` envelope).
+
+servers:
+  - url: http://localhost:8080
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+paths:
+  /audit-logs:
+    get:
+      summary: List audit log entries
+      description: |
+        Returns all audit entries matching the supplied filters, ordered by
+        `timestamp` descending (newest first). All four filter parameters are
+        optional and combine with AND semantics. The endpoint is restricted to
+        callers with the `ADMIN` authority.
+
+        `entityId` is only valid when `entityType` is also supplied — supplying
+        `entityId` alone returns `400 Bad Request` because entity ids are not
+        globally unique across entity types.
+      operationId: listAuditLogs
+      parameters:
+        - name: entityType
+          in: query
+          required: false
+          description: Restrict results to entries for a single audited entity kind.
+          schema:
+            $ref: '#/components/schemas/AuditEntityType'
+        - name: entityId
+          in: query
+          required: false
+          description: |
+            Restrict results to entries for a single record. Must be accompanied
+            by `entityType`.
+          schema:
+            type: integer
+            format: int64
+        - name: action
+          in: query
+          required: false
+          description: Restrict results to entries for a single action kind.
+          schema:
+            $ref: '#/components/schemas/AuditAction'
+        - name: actor
+          in: query
+          required: false
+          description: |
+            Restrict results to entries whose actor was a USER (a real human via JWT)
+            or the SYSTEM (a background job, in later phases).
+          schema:
+            $ref: '#/components/schemas/ActorKind'
+      responses:
+        '200':
+          description: Matching audit entries, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogResponse'
+              examples:
+                empty:
+                  summary: No matches
+                  value: []
+                oneEntry:
+                  summary: A single CREATE on a ticket
+                  value:
+                    - id: 1
+                      action: CREATE
+                      entityType: TICKET
+                      entityId: 5
+                      performedBy: 2
+                      actor: USER
+                      timestamp: '2026-03-01T10:00:00Z'
+        '400':
+          description: |
+            `entityId` supplied without `entityType`, or an unknown enum value for
+            `entityType`, `action`, or `actor`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          description: Bearer token missing or invalid.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: Authenticated caller is not an `ADMIN`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuditLogResponse:
+      type: object
+      required: [id, action, entityType, entityId, actor, timestamp]
+      properties:
+        id:
+          type: integer
+          format: int64
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        entityType:
+          $ref: '#/components/schemas/AuditEntityType'
+        entityId:
+          type: integer
+          format: int64
+        performedBy:
+          type: integer
+          format: int64
+          nullable: true
+          description: User id who triggered the action. `null` when `actor` is `SYSTEM`.
+        actor:
+          $ref: '#/components/schemas/ActorKind'
+        timestamp:
+          type: string
+          format: date-time
+          description: RFC 3339 / ISO-8601 instant in UTC.
+
+    AuditAction:
+      type: string
+      enum:
+        - CREATE
+        - UPDATE
+        - DELETE
+        - SOFT_DELETE
+        - RESTORE
+        - STATUS_CHANGE
+        - AUTO_ASSIGN
+        - AUTO_ESCALATE
+      description: |
+        Action kind. `AUTO_ASSIGN` and `AUTO_ESCALATE` are reserved for later phases
+        and never emitted in v1.
+
+    AuditEntityType:
+      type: string
+      enum:
+        - USER
+        - PROJECT
+        - TICKET
+        - COMMENT
+
+    ActorKind:
+      type: string
+      enum:
+        - USER
+        - SYSTEM
+
+    Problem:
+      type: object
+      description: RFC 7807 Problem Details payload.
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

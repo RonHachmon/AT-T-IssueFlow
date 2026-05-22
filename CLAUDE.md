@@ -100,7 +100,7 @@ Pure-JVM JUnit 5 + Mockito + AssertJ. Tests do **not** load a Spring context (no
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-[specs/006-ticket-comments/plan.md](specs/006-ticket-comments/plan.md)
+[specs/007-audit-log/plan.md](specs/007-audit-log/plan.md)
 
 Constitution (project rules):
 [.specify/memory/constitution.md](.specify/memory/constitution.md)
