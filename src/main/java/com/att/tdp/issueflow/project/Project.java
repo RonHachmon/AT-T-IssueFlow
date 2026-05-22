@@ -4,6 +4,7 @@ import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,6 +15,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
+import com.att.tdp.issueflow.auditlog.AuditableEntityListener;
 import com.att.tdp.issueflow.user.User;
 
 import lombok.Getter;
@@ -30,6 +32,7 @@ import lombok.Setter;
  */
 @Entity
 @Table(name = "projects")
+@EntityListeners(AuditableEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor

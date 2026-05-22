@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.att.tdp.issueflow.auditlog.AuditAction;
+import com.att.tdp.issueflow.auditlog.AuditContext;
 import com.att.tdp.issueflow.common.error.DuplicateResourceException;
 import com.att.tdp.issueflow.common.error.NotFoundException;
 import com.att.tdp.issueflow.project.dto.CreateProjectRequest;
@@ -135,6 +137,7 @@ public class ProjectService {
             .orElseThrow(() -> new NotFoundException(RESOURCE, id));
 
     project.setDeletedAt(Instant.now());
+    AuditContext.hint(AuditAction.SOFT_DELETE);
     projectRepository.save(project);
   }
 }

@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.att.tdp.issueflow.auditlog.AuditAction;
+import com.att.tdp.issueflow.auditlog.AuditContext;
 import com.att.tdp.issueflow.common.error.InvalidStateTransitionException;
 import com.att.tdp.issueflow.common.error.NotFoundException;
 import com.att.tdp.issueflow.project.Project;
@@ -141,6 +143,8 @@ public class TicketService {
     if (request.status() != null) {
       validateTransition(ticket.getStatus(), request.status());
       ticket.setStatus(request.status());
+      // status changes are audited as STATUS_CHANGE; see auditlog package
+      AuditContext.hint(AuditAction.STATUS_CHANGE);
     }
 
     if (request.title() != null) {
@@ -191,6 +195,7 @@ public class TicketService {
             .orElseThrow(() -> new NotFoundException(RESOURCE, id));
 
     ticket.setDeletedAt(Instant.now());
+    AuditContext.hint(AuditAction.SOFT_DELETE);
     ticketRepository.save(ticket);
   }
 

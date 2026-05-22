@@ -1,0 +1,411 @@
+{
+  "info": {
+    "name": "IssueFlow — Audit Logs API",
+    "_postman_id": "audit-logs-collection-v1",
+    "description": "End-to-end tests for GET /audit-logs: auth, filters, immutability, and entry persistence.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "adminToken",     "value": "", "type": "string" },
+    { "key": "developerToken", "value": "", "type": "string" },
+    { "key": "projectId",      "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Setup – login as admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin login succeeds', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('adminToken', pm.response.json().accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"username\":\"admin\",\"password\":\"Admin1234!\"}" },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] }
+      }
+    },
+    {
+      "name": "Setup – login as developer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Developer login succeeds', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('developerToken', pm.response.json().accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"username\":\"developer\",\"password\":\"Dev1234!\"}" },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] }
+      }
+    },
+    {
+      "name": "US2 – GET /audit-logs as ADMIN → 200 sorted desc",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+              "const body = pm.response.json();",
+              "if (body.length > 1) {",
+              "  pm.test('Entries sorted timestamp desc', () => {",
+              "    for (let i = 0; i < body.length - 1; i++) {",
+              "      pm.expect(new Date(body[i].timestamp).getTime()).to.be.gte(new Date(body[i+1].timestamp).getTime());",
+              "    }",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": { "raw": "{{baseUrl}}/audit-logs", "host": ["{{baseUrl}}"], "path": ["audit-logs"] }
+      }
+    },
+    {
+      "name": "US2 – GET /audit-logs as DEVELOPER → 403",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Status is 403', () => pm.response.to.have.status(403));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{developerToken}}" }],
+        "url": { "raw": "{{baseUrl}}/audit-logs", "host": ["{{baseUrl}}"], "path": ["audit-logs"] }
+      }
+    },
+    {
+      "name": "US2 – GET /audit-logs unauthenticated → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Status is 401', () => pm.response.to.have.status(401));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/audit-logs", "host": ["{{baseUrl}}"], "path": ["audit-logs"] }
+      }
+    },
+    {
+      "name": "US3 – filter by entityType=TICKET",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('All entries are TICKET', () => {",
+              "  pm.response.json().forEach(e => pm.expect(e.entityType).to.eql('TICKET'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/audit-logs?entityType=TICKET",
+          "host": ["{{baseUrl}}"], "path": ["audit-logs"],
+          "query": [{ "key": "entityType", "value": "TICKET" }]
+        }
+      }
+    },
+    {
+      "name": "US3 – filter all four params (entityType, entityId, action, actor)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/audit-logs?entityType=TICKET&entityId=5&action=UPDATE&actor=USER",
+          "host": ["{{baseUrl}}"], "path": ["audit-logs"],
+          "query": [
+            { "key": "entityType", "value": "TICKET" },
+            { "key": "entityId",   "value": "5" },
+            { "key": "action",     "value": "UPDATE" },
+            { "key": "actor",      "value": "USER" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "US3 – entityId without entityType → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('Problem detail body', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.eql(400);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/audit-logs?entityId=5",
+          "host": ["{{baseUrl}}"], "path": ["audit-logs"],
+          "query": [{ "key": "entityId", "value": "5" }]
+        }
+      }
+    },
+    {
+      "name": "US3 – unknown entityType enum → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Status is 400', () => pm.response.to.have.status(400));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/audit-logs?entityType=BANANA",
+          "host": ["{{baseUrl}}"], "path": ["audit-logs"],
+          "query": [{ "key": "entityType", "value": "BANANA" }]
+        }
+      }
+    },
+    {
+      "name": "US3 – no match returns empty array (not 404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is empty array', () => pm.expect(pm.response.json()).to.eql([]));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/audit-logs?entityType=TICKET&entityId=999999999",
+          "host": ["{{baseUrl}}"], "path": ["audit-logs"],
+          "query": [
+            { "key": "entityType", "value": "TICKET" },
+            { "key": "entityId",   "value": "999999999" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "US4 – POST /audit-logs → 405 Method Not Allowed",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Status is 405', () => pm.response.to.have.status(405));"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+          { "key": "Content-Type",   "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{}" },
+        "url": { "raw": "{{baseUrl}}/audit-logs", "host": ["{{baseUrl}}"], "path": ["audit-logs"] }
+      }
+    },
+    {
+      "name": "US4 – PATCH /audit-logs/1 → 405 or 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 405 or 404', () => {",
+              "  pm.expect([404, 405]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+          { "key": "Content-Type",   "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{}" },
+        "url": { "raw": "{{baseUrl}}/audit-logs/1", "host": ["{{baseUrl}}"], "path": ["audit-logs","1"] }
+      }
+    },
+    {
+      "name": "US4 – PUT /audit-logs/1 → 405 or 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 405 or 404', () => {",
+              "  pm.expect([404, 405]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+          { "key": "Content-Type",   "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{}" },
+        "url": { "raw": "{{baseUrl}}/audit-logs/1", "host": ["{{baseUrl}}"], "path": ["audit-logs","1"] }
+      }
+    },
+    {
+      "name": "US4 – DELETE /audit-logs/1 → 405 or 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 405 or 404', () => {",
+              "  pm.expect([404, 405]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": { "raw": "{{baseUrl}}/audit-logs/1", "host": ["{{baseUrl}}"], "path": ["audit-logs","1"] }
+      }
+    },
+    {
+      "name": "US4 – smoke: admin creates project, audit entry persists after soft-delete",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Step 1: get admin user id",
+              "pm.sendRequest({",
+              "  url: pm.environment.get('baseUrl') + '/auth/login',",
+              "  method: 'POST',",
+              "  header: { 'Content-Type': 'application/json' },",
+              "  body: { mode: 'raw', raw: JSON.stringify({ username: 'admin', password: 'Admin1234!' }) }",
+              "}, function(err, loginRes) {",
+              "  const token = loginRes.json().accessToken;",
+              "  pm.sendRequest({",
+              "    url: pm.environment.get('baseUrl') + '/users',",
+              "    method: 'GET',",
+              "    header: { 'Authorization': 'Bearer ' + token }",
+              "  }, function(err2, usersRes) {",
+              "    const admin = usersRes.json().find(u => u.username === 'admin');",
+              "    pm.sendRequest({",
+              "      url: pm.environment.get('baseUrl') + '/projects',",
+              "      method: 'POST',",
+              "      header: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },",
+              "      body: { mode: 'raw', raw: JSON.stringify({ name: 'Audit-smoke-' + Date.now(), description: 'smoke', ownerId: admin.id }) }",
+              "    }, function(err3, projectRes) {",
+              "      const proj = projectRes.json();",
+              "      pm.collectionVariables.set('smokeProjectId', proj.id);",
+              "      pm.sendRequest({",
+              "        url: pm.environment.get('baseUrl') + '/projects/' + proj.id,",
+              "        method: 'DELETE',",
+              "        header: { 'Authorization': 'Bearer ' + token }",
+              "      }, function() {});",
+              "    });",
+              "  });",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const entries = pm.response.json();",
+              "const projId = pm.collectionVariables.get('smokeProjectId') * 1;",
+              "const projEntries = entries.filter(e => e.entityType === 'PROJECT' && e.entityId === projId);",
+              "pm.test('CREATE and SOFT_DELETE entries present (entries outlive project)', () => {",
+              "  pm.expect(projEntries.length).to.be.gte(2);",
+              "  const actions = projEntries.map(e => e.action);",
+              "  pm.expect(actions).to.include('CREATE');",
+              "  pm.expect(actions).to.include('SOFT_DELETE');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/audit-logs?entityType=PROJECT",
+          "host": ["{{baseUrl}}"], "path": ["audit-logs"],
+          "query": [{ "key": "entityType", "value": "PROJECT" }]
+        }
+      }
+    }
+  ]
+}
