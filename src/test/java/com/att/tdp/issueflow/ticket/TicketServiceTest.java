@@ -22,6 +22,7 @@ import com.att.tdp.issueflow.common.error.InvalidStateTransitionException;
 import com.att.tdp.issueflow.common.error.NotFoundException;
 import com.att.tdp.issueflow.project.Project;
 import com.att.tdp.issueflow.project.ProjectRepository;
+import com.att.tdp.issueflow.ticket.dependency.TicketDependencyRepository;
 import com.att.tdp.issueflow.ticket.dto.CreateTicketRequest;
 import com.att.tdp.issueflow.ticket.dto.TicketResponse;
 import com.att.tdp.issueflow.ticket.dto.UpdateTicketRequest;
@@ -35,6 +36,7 @@ class TicketServiceTest {
   @Mock private ProjectRepository projectRepository;
   @Mock private UserRepository userRepository;
   @Mock private TicketMapper ticketMapper;
+  @Mock private TicketDependencyRepository ticketDependencyRepository;
 
   @InjectMocks private TicketService ticketService;
 
@@ -225,6 +227,37 @@ class TicketServiceTest {
     ticketService.update(10L, request);
 
     assertThat(activeTicket.getStatus()).isEqualTo(TicketStatus.IN_PROGRESS);
+    verify(ticketRepository).save(activeTicket);
+  }
+
+  // ---------------- DONE-gate: open blockers ----------------
+
+  @Test
+  void update_rejectsDoneTransitionWhenOpenBlockerExists() {
+    activeTicket.setStatus(TicketStatus.IN_REVIEW);
+    when(ticketRepository.findByIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(activeTicket));
+    when(ticketDependencyRepository.countActiveOpenBlockers(10L)).thenReturn(1L);
+    UpdateTicketRequest request =
+        new UpdateTicketRequest(null, null, null, null, null, null, TicketStatus.DONE);
+
+    assertThatThrownBy(() -> ticketService.update(10L, request))
+        .isInstanceOf(InvalidStateTransitionException.class)
+        .hasMessageContaining("open blockers");
+    assertThat(activeTicket.getStatus()).isEqualTo(TicketStatus.IN_REVIEW);
+    verify(ticketRepository, never()).save(any());
+  }
+
+  @Test
+  void update_allowsDoneTransitionWhenAllBlockersResolved() {
+    activeTicket.setStatus(TicketStatus.IN_REVIEW);
+    when(ticketRepository.findByIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(activeTicket));
+    when(ticketDependencyRepository.countActiveOpenBlockers(10L)).thenReturn(0L);
+    UpdateTicketRequest request =
+        new UpdateTicketRequest(null, null, null, null, null, null, TicketStatus.DONE);
+
+    ticketService.update(10L, request);
+
+    assertThat(activeTicket.getStatus()).isEqualTo(TicketStatus.DONE);
     verify(ticketRepository).save(activeTicket);
   }
 
