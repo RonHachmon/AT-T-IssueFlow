@@ -18,6 +18,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import com.att.tdp.issueflow.auditlog.AuditableEntityListener;
 import com.att.tdp.issueflow.ticket.Ticket;
 import com.att.tdp.issueflow.user.User;
 
@@ -33,7 +34,7 @@ import lombok.Setter;
  */
 @Entity
 @Table(name = "comments")
-@EntityListeners(AuditingEntityListener.class)
+@EntityListeners({AuditingEntityListener.class, AuditableEntityListener.class})
 @Getter
 @Setter
 @NoArgsConstructor

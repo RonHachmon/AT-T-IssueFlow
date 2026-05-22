@@ -16,11 +16,13 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -100,6 +102,20 @@ public class GlobalExceptionHandler {
     String detail = exception.getResource() + " " + exception.getResourceId() + " does not exist";
     ProblemDetail problem = ProblemDetailFactory.notFound(detail);
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
+  }
+
+  /**
+   * Maps method security authorization failures (e.g., failed @PreAuthorize validation checks) to
+   * an RFC 7807 403 Forbidden problem detail.
+   *
+   * @param exception the method security check failure exception
+   * @return a 403 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(AuthorizationDeniedException.class)
+  public ResponseEntity<ProblemDetail> handleAuthorizationDenied(
+      AuthorizationDeniedException exception) {
+    ProblemDetail problem = ProblemDetailFactory.forbidden("Access Denied");
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
   }
 
   /**
@@ -231,6 +247,33 @@ public class GlobalExceptionHandler {
         ProblemDetailFactory.conflict(
             "Ticket was modified concurrently. Fetch the latest version and retry.");
     return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+  }
+
+  /**
+   * Maps an invalid filter combination (entityId without entityType) to a 400 problem.
+   *
+   * @param exception the filter-validation exception raised by AuditLogService
+   * @return a 400 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(InvalidFilterException.class)
+  public ResponseEntity<ProblemDetail> handleInvalidFilter(InvalidFilterException exception) {
+    ProblemDetail problem = ProblemDetailFactory.malformedRequest(exception.getMessage());
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+  }
+
+  /**
+   * Maps query-parameter type mismatches (e.g. unknown enum value) to a 400 problem.
+   *
+   * @param exception the type-mismatch exception raised by Spring's data binding
+   * @return a 400 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ProblemDetail> handleTypeMismatch(
+      MethodArgumentTypeMismatchException exception) {
+    String detail =
+        "Invalid value '" + exception.getValue() + "' for parameter '" + exception.getName() + "'";
+    ProblemDetail problem = ProblemDetailFactory.malformedRequest(detail);
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
   }
 
   /**
