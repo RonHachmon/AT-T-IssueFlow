@@ -19,11 +19,14 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -315,6 +318,59 @@ public class GlobalExceptionHandler {
       UnsupportedFileTypeException exception) {
     ProblemDetail problem = ProblemDetailFactory.unsupportedFileType(exception.getMessage());
     return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(problem);
+  }
+
+  /**
+   * Maps Spring's dispatcher-level Content-Type rejection (request Content-Type does not match any
+   * handler's {@code consumes}) to a 415 problem. Without this, the exception falls through to the
+   * catch-all 500 handler.
+   *
+   * @param exception the media-type-not-supported exception raised by Spring's dispatcher
+   * @return a 415 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+  public ResponseEntity<ProblemDetail> handleMediaTypeNotSupported(
+      HttpMediaTypeNotSupportedException exception) {
+    String detail =
+        exception.getContentType() != null
+            ? "Request Content-Type '" + exception.getContentType() + "' is not supported."
+            : "Request Content-Type is not supported.";
+    ProblemDetail problem = ProblemDetailFactory.unsupportedFileType(detail);
+    return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(problem);
+  }
+
+  /**
+   * Maps a multipart-required handler being hit by a non-multipart request to a 400 problem. Spring
+   * raises this when {@code @RequestParam MultipartFile} is bound but the request body is not
+   * {@code multipart/form-data}.
+   *
+   * <p>Declared more specifically than {@link MaxUploadSizeExceededException} (which extends {@link
+   * MultipartException}); the more-specific handler wins by Spring's resolution rules, so 413
+   * oversize-upload responses are unaffected.
+   *
+   * @param exception the multipart-parsing exception raised by Spring's argument resolver
+   * @return a 400 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(MultipartException.class)
+  public ResponseEntity<ProblemDetail> handleMultipart(MultipartException exception) {
+    ProblemDetail problem =
+        ProblemDetailFactory.malformedRequest(
+            "Request must be multipart/form-data with a 'file' part.");
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+  }
+
+  /**
+   * Maps a valid multipart request that omits the required {@code file} part to a 400 problem.
+   *
+   * @param exception the missing-part exception raised by Spring's argument resolver
+   * @return a 400 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(MissingServletRequestPartException.class)
+  public ResponseEntity<ProblemDetail> handleMissingPart(
+      MissingServletRequestPartException exception) {
+    String detail = "Required multipart part '" + exception.getRequestPartName() + "' is missing.";
+    ProblemDetail problem = ProblemDetailFactory.malformedRequest(detail);
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
   }
 
   /**

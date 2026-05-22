@@ -1,7 +1,6 @@
 package com.att.tdp.issueflow.ticket.attachment;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,7 +24,7 @@ public class AttachmentController {
     this.attachmentService = attachmentService;
   }
 
-  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PostMapping
   @ResponseStatus(HttpStatus.OK)
   public AttachmentResponse upload(
       @PathVariable Long ticketId,
