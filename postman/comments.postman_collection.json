@@ -1,0 +1,331 @@
+{
+  "info": {
+    "name": "IssueFlow – Comments API",
+    "_postman_id": "comments-collection-v1",
+    "description": "End-to-end tests for the Comments API endpoints: POST, GET, PATCH, DELETE under /tickets/{ticketId}/comments.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "POST – happy path: create comment",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.sendRequest({",
+              "  url: pm.environment.get('baseUrl') + '/auth/me',",
+              "  method: 'GET',",
+              "  header: { 'Authorization': 'Bearer ' + pm.environment.get('authToken') }",
+              "}, function(err, res) {",
+              "  pm.variables.set('currentUserId', res.json().id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Returns id', () => pm.expect(body.id).to.be.a('number'));",
+              "pm.test('Returns authorId matching /me', () => pm.expect(body.authorId).to.eql(pm.variables.get('currentUserId')));",
+              "pm.test('Returns ticketId', () => pm.expect(body.ticketId).to.eql(pm.collectionVariables.get('ticketId') * 1));",
+              "pm.test('Returns content', () => pm.expect(body.content).to.eql('Hello from Postman'));",
+              "pm.test('version starts at 0', () => pm.expect(body.version).to.eql(0));",
+              "pm.collectionVariables.set('commentId', body.id);",
+              "pm.collectionVariables.set('commentVersion', body.version);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"authorId\": {{currentUserId}}, \"content\": \"Hello from Postman\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments"]
+        }
+      }
+    },
+    {
+      "name": "POST – 403 on mismatched authorId",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"authorId\": 99999, \"content\": \"Forbidden attempt\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments"]
+        }
+      }
+    },
+    {
+      "name": "POST – 422 on blank content",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 422', () => pm.response.to.have.status(422));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"content\": \"\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments"]
+        }
+      }
+    },
+    {
+      "name": "POST – 404 on missing ticket",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"content\": \"This ticket does not exist\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/999999/comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "999999", "comments"]
+        }
+      }
+    },
+    {
+      "name": "GET – list comments with results",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));",
+              "pm.test('Has total field', () => pm.expect(body.total).to.be.a('number'));",
+              "pm.test('Data is not empty', () => pm.expect(body.data.length).to.be.above(0));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments"]
+        }
+      }
+    },
+    {
+      "name": "GET – empty list on ticket with no comments",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Data is empty array', () => pm.expect(body.data).to.eql([]));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{emptyTicketId}}/comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{emptyTicketId}}", "comments"]
+        }
+      }
+    },
+    {
+      "name": "GET – 404 on non-existent ticket",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/999999/comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "999999", "comments"]
+        }
+      }
+    },
+    {
+      "name": "PATCH – happy path: update comment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Content updated', () => pm.expect(body.content).to.eql('Updated by Postman'));",
+              "pm.test('Version incremented', () => pm.expect(body.version).to.eql(1));",
+              "pm.collectionVariables.set('commentVersion', body.version);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"content\": \"Updated by Postman\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments/{{commentId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments", "{{commentId}}"]
+        }
+      }
+    },
+    {
+      "name": "PATCH – 404 on missing comment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"content\": \"Does not exist\", \"version\": 0}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments/999999",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments", "999999"]
+        }
+      }
+    },
+    {
+      "name": "DELETE – happy path: delete comment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments/{{commentId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments", "{{commentId}}"]
+        }
+      }
+    },
+    {
+      "name": "DELETE – 404 on missing comment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments/999999",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments", "999999"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {"key": "ticketId", "value": "1", "type": "string"},
+    {"key": "emptyTicketId", "value": "2", "type": "string"},
+    {"key": "commentId", "value": "", "type": "string"},
+    {"key": "commentVersion", "value": "0", "type": "string"}
+  ]
+}

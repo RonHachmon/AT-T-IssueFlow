@@ -30,6 +30,9 @@ public final class ErrorType {
   /** 401 — authentication failed (bad credentials, expired token, etc.). */
   public static final String UNAUTHORIZED = "https://issueflow.att.com/problems/unauthorized";
 
+  /** 403 — caller is authenticated but not permitted to perform the requested action. */
+  public static final String FORBIDDEN = "https://issueflow.att.com/problems/forbidden";
+
   /** 500 — generic fallback for unhandled internal failures. */
   public static final String INTERNAL_ERROR = "https://issueflow.att.com/problems/internal-error";
 

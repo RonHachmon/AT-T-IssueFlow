@@ -178,6 +178,18 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Maps authorization failures (authenticated caller not permitted to act) to a 403 problem.
+   *
+   * @param exception the forbidden exception raised by a service
+   * @return a 403 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(ForbiddenException.class)
+  public ResponseEntity<ProblemDetail> handleForbidden(ForbiddenException exception) {
+    ProblemDetail problem = ProblemDetailFactory.forbidden(exception.getMessage());
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+  }
+
+  /**
    * Maps invalid ticket-state transition attempts and modifications to frozen DONE tickets to a 409
    * problem. The exception message is surfaced directly as the detail — it is always intentionally
    * human-readable.
@@ -188,6 +200,19 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(InvalidStateTransitionException.class)
   public ResponseEntity<ProblemDetail> handleInvalidTransition(
       InvalidStateTransitionException exception) {
+    ProblemDetail problem = ProblemDetailFactory.conflict(exception.getMessage());
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+  }
+
+  /**
+   * Maps stale optimistic-lock version mismatches to a 409 problem. Clients must re-fetch the
+   * resource and retry with the latest version.
+   *
+   * @param exception the stale-version exception raised by the comment service
+   * @return a 409 ProblemDetail wrapped in a {@link ResponseEntity}
+   */
+  @ExceptionHandler(StaleVersionException.class)
+  public ResponseEntity<ProblemDetail> handleStaleVersion(StaleVersionException exception) {
     ProblemDetail problem = ProblemDetailFactory.conflict(exception.getMessage());
     return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
   }
