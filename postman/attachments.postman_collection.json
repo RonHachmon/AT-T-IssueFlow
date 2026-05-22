@@ -1,0 +1,254 @@
+{
+  "info": {
+    "name": "IssueFlow — Attachments",
+    "_postman_id": "00000000-0000-0000-0000-00000000000a",
+    "description": "End-to-end tests for /tickets/{ticketId}/attachments — upload happy path, unsupported MIME type rejection, unknown ticket, delete happy path, and unknown-attachment delete. Requires authToken from the Authentication collection. File uploads reference postman/test-files/sample.txt relative to the project root (Newman working dir).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{authToken}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "ticketId", "value": "", "type": "string" },
+    { "key": "attachmentId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "SETUP — create project for attachments",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"AttachmentsCollection\",\n  \"description\": \"Auto-created by Postman attachments tests\",\n  \"ownerId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/projects",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('projectId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SETUP — create ticket for attachments",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Attachment host ticket\",\n  \"priority\": \"MEDIUM\",\n  \"type\": \"BUG\",\n  \"projectId\": {{projectId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('ticketId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — upload txt happy path -> 200",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "postman/test-files/sample.txt",
+              "contentType": "text/plain"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/attachments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "attachments"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Has id', () => pm.expect(body.id).to.be.a('number'));",
+              "pm.test('ticketId matches', () => pm.expect(body.ticketId).to.eql(pm.collectionVariables.get('ticketId') * 1));",
+              "pm.test('filename echoed', () => pm.expect(body.filename).to.eql('sample.txt'));",
+              "pm.test('contentType is text/plain', () => pm.expect(body.contentType).to.eql('text/plain'));",
+              "pm.collectionVariables.set('attachmentId', body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — upload unsupported declared type -> 415",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "postman/test-files/sample.txt",
+              "contentType": "application/json"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/attachments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "attachments"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 415', () => pm.response.to.have.status(415));",
+              "pm.test('Detail mentions the rejected type', () => pm.expect(pm.response.json().detail).to.match(/application\\/json/i));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — upload to unknown ticket -> 404",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "postman/test-files/sample.txt",
+              "contentType": "text/plain"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/999999/attachments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "999999", "attachments"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+              "pm.test('Detail mentions Ticket', () => pm.expect(pm.response.json().detail).to.match(/ticket/i));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE — unknown attachment -> 404",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/attachments/999999",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "attachments", "999999"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+              "pm.test('Detail mentions Attachment', () => pm.expect(pm.response.json().detail).to.match(/attachment/i));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE — happy path -> 200",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/attachments/{{attachmentId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "attachments", "{{attachmentId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE — already-deleted attachment -> 404",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/attachments/{{attachmentId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "attachments", "{{attachmentId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
