@@ -1,0 +1,581 @@
+{
+  "info": {
+    "name": "IssueFlow — Ticket Dependencies",
+    "_postman_id": "00000000-0000-0000-0000-000000000009",
+    "description": "End-to-end tests for /tickets/{ticketId}/dependencies — add, list, remove, plus cross-project, self, duplicate, cycle, and DONE-gate cases.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{authToken}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "projectAId", "value": "", "type": "string" },
+    { "key": "projectBId", "value": "", "type": "string" },
+    { "key": "blockedId", "value": "", "type": "string" },
+    { "key": "blockerId", "value": "", "type": "string" },
+    { "key": "crossProjectTicketId", "value": "", "type": "string" },
+    { "key": "extraBlockerId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "SETUP — create project A",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"DepCollection A\",\n  \"description\": \"Auto-created by Postman dependency tests\",\n  \"ownerId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/projects",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('projectAId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SETUP — create project B",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"DepCollection B\",\n  \"description\": \"Auto-created by Postman dependency tests\",\n  \"ownerId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/projects",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('projectBId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SETUP — create blocked ticket in A",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Blocked\",\n  \"priority\": \"HIGH\",\n  \"type\": \"BUG\",\n  \"projectId\": {{projectAId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('blockedId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SETUP — create blocker ticket in A",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Blocker\",\n  \"priority\": \"HIGH\",\n  \"type\": \"BUG\",\n  \"projectId\": {{projectAId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('blockerId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SETUP — create cross-project ticket in B",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Wrong project\",\n  \"priority\": \"HIGH\",\n  \"type\": \"BUG\",\n  \"projectId\": {{projectBId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('crossProjectTicketId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SETUP — create extra blocker for DONE-gate test",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Extra blocker\",\n  \"priority\": \"LOW\",\n  \"type\": \"BUG\",\n  \"projectId\": {{projectAId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('extraBlockerId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — add dependency happy path -> 200",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"blockedBy\": {{blockerId}} }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}/dependencies",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}", "dependencies"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — self-dependency -> 409",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"blockedBy\": {{blockedId}} }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}/dependencies",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}", "dependencies"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+              "pm.test('Detail mentions self', () => pm.expect(pm.response.json().detail).to.match(/itself/i));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — cross-project blocker -> 409",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"blockedBy\": {{crossProjectTicketId}} }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}/dependencies",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}", "dependencies"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+              "pm.test('Detail mentions project', () => pm.expect(pm.response.json().detail).to.match(/project/i));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — duplicate dependency -> 409",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"blockedBy\": {{blockerId}} }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}/dependencies",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}", "dependencies"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — cycle introduction -> 409",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"blockedBy\": {{blockedId}} }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockerId}}/dependencies",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockerId}}", "dependencies"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+              "pm.test('Detail mentions cycle', () => pm.expect(pm.response.json().detail).to.match(/cycle/i));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — unknown blocked ticket -> 404",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"blockedBy\": {{blockerId}} }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/999999/dependencies",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "999999", "dependencies"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST — unknown blocker ticket -> 404",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"blockedBy\": 999999 }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}/dependencies",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}", "dependencies"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET — list dependencies -> 200 with one row",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}/dependencies",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}", "dependencies"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Is array', () => pm.expect(body).to.be.an('array'));",
+              "pm.test('Has one row', () => pm.expect(body.length).to.eql(1));",
+              "pm.test('Row has id/title/status', () => pm.expect(body[0]).to.include.keys('id','title','status'));",
+              "pm.test('Row id matches blocker', () => pm.expect(body[0].id).to.eql(pm.collectionVariables.get('blockerId') * 1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "PATCH — blocked cannot reach DONE while blocker open -> 409",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Advance blocked through TODO -> IN_PROGRESS -> IN_REVIEW so DONE is one step away.",
+              "const id = pm.collectionVariables.get('blockedId');",
+              "const baseUrl = pm.environment.get('baseUrl');",
+              "const auth = { 'Authorization': 'Bearer ' + pm.environment.get('authToken'), 'Content-Type': 'application/json' };",
+              "function advance(status, cb) {",
+              "  pm.sendRequest({ url: baseUrl + '/tickets/' + id, method: 'PATCH', header: auth, body: { mode: 'raw', raw: JSON.stringify({ status }) } }, cb);",
+              "}",
+              "advance('IN_PROGRESS', () => advance('IN_REVIEW', () => {}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+              "pm.test('Detail mentions blockers', () => pm.expect(pm.response.json().detail).to.match(/blockers/i));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"DONE\" }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}"]
+        }
+      }
+    },
+    {
+      "name": "PATCH — resolve blocker through to DONE",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const id = pm.collectionVariables.get('blockerId');",
+              "const baseUrl = pm.environment.get('baseUrl');",
+              "const auth = { 'Authorization': 'Bearer ' + pm.environment.get('authToken'), 'Content-Type': 'application/json' };",
+              "function advance(status, cb) {",
+              "  pm.sendRequest({ url: baseUrl + '/tickets/' + id, method: 'PATCH', header: auth, body: { mode: 'raw', raw: JSON.stringify({ status }) } }, cb);",
+              "}",
+              "advance('IN_PROGRESS', () => advance('IN_REVIEW', () => {}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"DONE\" }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockerId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockerId}}"]
+        }
+      }
+    },
+    {
+      "name": "PATCH — blocked reaches DONE once blocker is DONE -> 200",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"DONE\" }"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE — remove dependency -> 200",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Wire a fresh dependency between extraBlocker (open) and a new blocked-like ticket.",
+              "// For this delete test, just use the existing blocked + extraBlockerId edge.",
+              "const baseUrl = pm.environment.get('baseUrl');",
+              "const auth = { 'Authorization': 'Bearer ' + pm.environment.get('authToken'), 'Content-Type': 'application/json' };",
+              "pm.sendRequest({ url: baseUrl + '/tickets/' + pm.collectionVariables.get('blockedId') + '/dependencies', method: 'POST', header: auth, body: { mode: 'raw', raw: JSON.stringify({ blockedBy: pm.collectionVariables.get('extraBlockerId') * 1 }) } }, () => {});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}/dependencies/{{extraBlockerId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}", "dependencies", "{{extraBlockerId}}"]
+        }
+      }
+    },
+    {
+      "name": "DELETE — missing dependency -> 404",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{blockedId}}/dependencies/999999",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{blockedId}}", "dependencies", "999999"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
