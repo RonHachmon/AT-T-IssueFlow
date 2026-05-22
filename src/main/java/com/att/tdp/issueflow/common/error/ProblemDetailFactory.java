@@ -92,6 +92,30 @@ public final class ProblemDetailFactory {
   }
 
   /**
+   * Builds a 413 problem for file uploads that exceed the maximum allowed size.
+   *
+   * @param detail per-occurrence explanation, safe to surface to clients
+   * @return a populated {@link ProblemDetail}
+   */
+  public static ProblemDetail fileTooLarge(String detail) {
+    return build(HttpStatus.PAYLOAD_TOO_LARGE, ErrorType.FILE_TOO_LARGE, "File too large", detail);
+  }
+
+  /**
+   * Builds a 415 problem for file uploads whose MIME type is not permitted.
+   *
+   * @param detail per-occurrence explanation, safe to surface to clients
+   * @return a populated {@link ProblemDetail}
+   */
+  public static ProblemDetail unsupportedFileType(String detail) {
+    return build(
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+        ErrorType.UNSUPPORTED_FILE_TYPE,
+        "Unsupported file type",
+        detail);
+  }
+
+  /**
    * Builds a 500 problem as a generic fallback.
    *
    * @param detail per-occurrence explanation; MUST NOT contain stack traces or secrets

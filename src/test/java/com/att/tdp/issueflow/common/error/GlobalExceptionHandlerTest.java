@@ -22,6 +22,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 class GlobalExceptionHandlerTest {
@@ -157,6 +159,36 @@ class GlobalExceptionHandlerTest {
     assertThat(problem.getStatus()).isEqualTo(409);
     assertThat(problem.getType().toString()).isEqualTo(ErrorType.DUPLICATE_RESOURCE);
     assertThat(problem.getDetail()).doesNotContain("ERROR:", "unique constraint");
+  }
+
+  @Test
+  void returnsMalformedRequestProblemWhenRequestIsNotMultipart() {
+    MultipartException exception =
+        new MultipartException("Current request is not a multipart request");
+
+    ResponseEntity<ProblemDetail> response = handler.handleMultipart(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    ProblemDetail problem = response.getBody();
+    assertThat(problem).isNotNull();
+    assertThat(problem.getStatus()).isEqualTo(400);
+    assertThat(problem.getType().toString()).isEqualTo(ErrorType.MALFORMED_REQUEST);
+    assertThat(problem.getTitle()).isEqualTo("Malformed request");
+    assertThat(problem.getDetail()).contains("multipart/form-data", "file");
+  }
+
+  @Test
+  void returnsMalformedRequestProblemWhenRequiredPartIsMissing() {
+    MissingServletRequestPartException exception = new MissingServletRequestPartException("file");
+
+    ResponseEntity<ProblemDetail> response = handler.handleMissingPart(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    ProblemDetail problem = response.getBody();
+    assertThat(problem).isNotNull();
+    assertThat(problem.getStatus()).isEqualTo(400);
+    assertThat(problem.getType().toString()).isEqualTo(ErrorType.MALFORMED_REQUEST);
+    assertThat(problem.getDetail()).contains("file");
   }
 
   @Test

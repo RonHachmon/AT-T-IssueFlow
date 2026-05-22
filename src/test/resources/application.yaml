@@ -28,6 +28,10 @@ app:
   security:
     jwt:
       secret: test-secret-key-for-unit-tests-only-32chars
+  storage:
+    strategy: local
+    local:
+      base-path: ./test-uploads
 
 management:
   endpoints:
