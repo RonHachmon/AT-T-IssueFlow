@@ -24,6 +24,11 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
+app:
+  security:
+    jwt:
+      secret: test-secret-key-for-unit-tests-only-32chars
+
 management:
   endpoints:
     web:
