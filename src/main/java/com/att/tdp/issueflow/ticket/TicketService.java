@@ -12,6 +12,7 @@ import com.att.tdp.issueflow.common.error.InvalidStateTransitionException;
 import com.att.tdp.issueflow.common.error.NotFoundException;
 import com.att.tdp.issueflow.project.Project;
 import com.att.tdp.issueflow.project.ProjectRepository;
+import com.att.tdp.issueflow.ticket.dependency.TicketDependencyRepository;
 import com.att.tdp.issueflow.ticket.dto.CreateTicketRequest;
 import com.att.tdp.issueflow.ticket.dto.TicketResponse;
 import com.att.tdp.issueflow.ticket.dto.UpdateTicketRequest;
@@ -36,16 +37,19 @@ public class TicketService {
   private final ProjectRepository projectRepository;
   private final UserRepository userRepository;
   private final TicketMapper ticketMapper;
+  private final TicketDependencyRepository ticketDependencyRepository;
 
   public TicketService(
       TicketRepository ticketRepository,
       ProjectRepository projectRepository,
       UserRepository userRepository,
-      TicketMapper ticketMapper) {
+      TicketMapper ticketMapper,
+      TicketDependencyRepository ticketDependencyRepository) {
     this.ticketRepository = ticketRepository;
     this.projectRepository = projectRepository;
     this.userRepository = userRepository;
     this.ticketMapper = ticketMapper;
+    this.ticketDependencyRepository = ticketDependencyRepository;
   }
 
   /**
@@ -142,6 +146,11 @@ public class TicketService {
 
     if (request.status() != null) {
       validateTransition(ticket.getStatus(), request.status());
+      if (request.status() == TicketStatus.DONE
+          && ticketDependencyRepository.countActiveOpenBlockers(ticket.getId()) > 0) {
+        throw new InvalidStateTransitionException(
+            "Ticket cannot be marked DONE while it has open blockers");
+      }
       ticket.setStatus(request.status());
       // status changes are audited as STATUS_CHANGE; see auditlog package
       AuditContext.hint(AuditAction.STATUS_CHANGE);

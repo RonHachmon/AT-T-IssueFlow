@@ -5,5 +5,6 @@ public enum AuditEntityType {
   USER,
   PROJECT,
   TICKET,
-  COMMENT
+  COMMENT,
+  TICKET_DEPENDENCY
 }

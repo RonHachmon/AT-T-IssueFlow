@@ -3,6 +3,7 @@ package com.att.tdp.issueflow.auditlog;
 import com.att.tdp.issueflow.comment.Comment;
 import com.att.tdp.issueflow.project.Project;
 import com.att.tdp.issueflow.ticket.Ticket;
+import com.att.tdp.issueflow.ticket.dependency.TicketDependency;
 import com.att.tdp.issueflow.user.User;
 
 /**
@@ -27,6 +28,7 @@ public final class EntityClassifier {
       case Project ignored -> AuditEntityType.PROJECT;
       case Ticket ignored -> AuditEntityType.TICKET;
       case Comment ignored -> AuditEntityType.COMMENT;
+      case TicketDependency ignored -> AuditEntityType.TICKET_DEPENDENCY;
       default ->
           throw new IllegalArgumentException(
               "Unaudited entity class: " + entity.getClass().getName());
@@ -46,6 +48,7 @@ public final class EntityClassifier {
       case Project p -> p.getId();
       case Ticket t -> t.getId();
       case Comment c -> c.getId();
+      case TicketDependency d -> d.getId();
       default ->
           throw new IllegalArgumentException(
               "Unaudited entity class: " + entity.getClass().getName());
