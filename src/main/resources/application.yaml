@@ -43,3 +43,7 @@ app:
     jwt:
       secret: ${APP_SECURITY_JWT_SECRET:change-me-in-production-use-32-plus-chars}
       access-token-ttl: PT12M
+  storage:
+    strategy: local
+    local:
+      base-path: ${APP_STORAGE_LOCAL_BASE_PATH:./uploads}
