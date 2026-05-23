@@ -1,0 +1,211 @@
+{
+  "info": {
+    "name": "IssueFlow — Project Workload",
+    "description": "End-to-end tests for GET /projects/:projectId/workload: shape, ordering, and 404 on unknown/soft-deleted projects.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "00000000-0000-0000-0000-000000000012"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "workloadProjectId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Setup — create project for workload tests",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Workload Test Project\",\n  \"description\": \"Project seeded by the workload Postman collection\",\n  \"ownerId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/projects",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('workloadProjectId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET — workload for active project → 200",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/projects/{{workloadProjectId}}/workload",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "{{workloadProjectId}}", "workload"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Body is an array', () => pm.expect(body).to.be.an('array'));",
+              "body.forEach(row => {",
+              "  pm.test('Each row has expected shape', () => pm.expect(row).to.have.all.keys('userId', 'username', 'openTicketCount'));",
+              "  pm.test('userId is a number', () => pm.expect(row.userId).to.be.a('number'));",
+              "  pm.test('username is a string', () => pm.expect(row.username).to.be.a('string'));",
+              "  pm.test('openTicketCount is a non-negative number', () => {",
+              "    pm.expect(row.openTicketCount).to.be.a('number');",
+              "    pm.expect(row.openTicketCount).to.be.at.least(0);",
+              "  });",
+              "});",
+              "pm.test('Rows are ordered by openTicketCount ascending', () => {",
+              "  for (let i = 1; i < body.length; i++) {",
+              "    pm.expect(body[i].openTicketCount).to.be.at.least(body[i - 1].openTicketCount);",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET — 404 on non-existent project",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/projects/999999/workload",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "999999", "workload"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+              "pm.test('Content-Type is application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET — 404 on soft-deleted project",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.sendRequest({",
+              "  url: pm.environment.get('baseUrl') + '/projects',",
+              "  method: 'POST',",
+              "  header: {",
+              "    'Content-Type': 'application/json',",
+              "    'Authorization': 'Bearer ' + pm.environment.get('authToken')",
+              "  },",
+              "  body: { mode: 'raw', raw: JSON.stringify({ name: 'Workload soft-delete probe', description: 'temp', ownerId: 1 }) }",
+              "}, (err, res) => {",
+              "  const id = res.json().id;",
+              "  pm.variables.set('softDeletedProjectId', id);",
+              "  pm.sendRequest({",
+              "    url: pm.environment.get('baseUrl') + '/projects/' + id,",
+              "    method: 'DELETE',",
+              "    header: { 'Authorization': 'Bearer ' + pm.environment.get('authToken') }",
+              "  }, () => {});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+              "pm.test('Content-Type is application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/projects/{{softDeletedProjectId}}/workload",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "{{softDeletedProjectId}}", "workload"]
+        }
+      }
+    },
+    {
+      "name": "GET — 401 without auth",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/projects/{{workloadProjectId}}/workload",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "{{workloadProjectId}}", "workload"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cleanup — soft-delete workload test project",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/projects/{{workloadProjectId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "{{workloadProjectId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
