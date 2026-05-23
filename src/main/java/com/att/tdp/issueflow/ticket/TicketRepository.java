@@ -1,9 +1,12 @@
 package com.att.tdp.issueflow.ticket;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Spring Data JPA repository for {@link Ticket}. The {@code AndDeletedAtIsNull} clause on every
@@ -48,4 +51,21 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
    * @return an {@link Optional} containing the ticket, or empty if not found or still active
    */
   Optional<Ticket> findByIdAndDeletedAtIsNotNull(Long id);
+
+  /**
+   * Returns the ids of every active, not-{@code DONE} ticket whose {@code dueDate} is strictly
+   * before {@code now}. Used by the auto-escalation scheduler to identify candidates for a priority
+   * bump or overdue-flag set. Only ids are returned so the outer pass stays cheap; each candidate
+   * is re-fetched inside its own transaction by the service.
+   *
+   * @param now the cutoff timestamp; tickets with {@code dueDate < now} are returned
+   * @return ids of overdue, non-terminal, active tickets
+   */
+  @Query(
+      "SELECT t.id FROM Ticket t "
+          + "WHERE t.deletedAt IS NULL "
+          + "AND t.status <> com.att.tdp.issueflow.ticket.TicketStatus.DONE "
+          + "AND t.dueDate IS NOT NULL "
+          + "AND t.dueDate < :now")
+  List<Long> findIdsOfOverdueNonDoneActiveTickets(@Param("now") Instant now);
 }
