@@ -45,6 +45,8 @@
               "pm.test('Returns ticketId', () => pm.expect(body.ticketId).to.eql(pm.collectionVariables.get('ticketId') * 1));",
               "pm.test('Returns content', () => pm.expect(body.content).to.eql('Hello from Postman'));",
               "pm.test('version starts at 0', () => pm.expect(body.version).to.eql(0));",
+              "pm.test('mentionedUsers is an array', () => pm.expect(body.mentionedUsers).to.be.an('array'));",
+              "pm.test('mentionedUsers is empty when no @-mentions in content', () => pm.expect(body.mentionedUsers).to.eql([]));",
               "pm.collectionVariables.set('commentId', body.id);",
               "pm.collectionVariables.set('commentVersion', body.version);"
             ],
@@ -58,6 +60,54 @@
         "body": {
           "mode": "raw",
           "raw": "{\"authorId\": {{currentUserId}}, \"content\": \"Hello from Postman\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "{{ticketId}}", "comments"]
+        }
+      }
+    },
+    {
+      "name": "POST – mentionedUsers populated when content has @mention",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.sendRequest({",
+              "  url: pm.environment.get('baseUrl') + '/auth/me',",
+              "  method: 'GET',",
+              "  header: { 'Authorization': 'Bearer ' + pm.environment.get('authToken') }",
+              "}, function(err, res) {",
+              "  const me = res.json();",
+              "  pm.variables.set('currentUserId', me.id);",
+              "  pm.variables.set('currentUsername', me.username);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('mentionedUsers is an array', () => pm.expect(body.mentionedUsers).to.be.an('array'));",
+              "pm.test('mentionedUsers contains the self mention', () => pm.expect(body.mentionedUsers.map(u => u.username.toLowerCase())).to.include(pm.variables.get('currentUsername').toLowerCase()));",
+              "pm.test('mentionedUsers entries carry id and fullName', () => { const m = body.mentionedUsers[0]; pm.expect(m.id).to.be.a('number'); pm.expect(m.fullName).to.be.a('string'); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"authorId\": {{currentUserId}}, \"content\": \"Self-mention test: @{{currentUsername}} and unknown @nobody, plus alice@example.com\"}"
         },
         "url": {
           "raw": "{{baseUrl}}/tickets/{{ticketId}}/comments",
