@@ -1,0 +1,4 @@
+title,description,status,priority,type,assigneeId
+"First valid ticket","A normal ticket",,HIGH,BUG,
+"Bad priority row","Row should fail",,BANANA,BUG,
+"Third valid ticket","Has, comma and ""quotes"" inside",,LOW,FEATURE,

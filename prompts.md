@@ -345,3 +345,54 @@ Executed all 31 tasks. Notable implementation notes:
   → 409 Conflict (generic "fetch and retry" message).
 - Spotless applied after writing all files to normalise line endings (Windows
   \r\n → Unix \n) as required by the Google Java Format check.
+
+## Feature 014 — CSV Export & Import for Tickets
+
+Model: **Claude Opus 4.7** via Claude Code (VS Code extension), 2026-05-23.
+Single-prompt feature, planned via `/plan` rather than the full Spec Kit pipeline.
+
+### Driving prompt
+
+> Admins can download all tickets in a project as a CSV file, and they can upload
+> a CSV file to create many tickets at once. The CSV must correctly handle tricky
+> data like commas, quotes, and newlines inside ticket descriptions. The import
+> returns a summary showing how many tickets were created, how many failed, and
+> what went wrong for the failed ones.
+>
+> API: `GET /tickets/export?projectId=:projectId` returns 200 OK with a CSV file
+> (fields: id, title, description, status, priority, type, assigneeId).
+> `POST /tickets/import` accepts multipart/form-data with `file` (CSV) and
+> `projectId`, returns `{ "created": 42, "failed": 3, "errors": [...] }`.
+>
+> Suggested implementation: Apache Commons CSV for RFC 4180 escaping;
+> `StreamingResponseBody` for export; per-row independent transactions
+> (`TransactionTemplate` programmatic) for partial-success import; reuse the
+> existing `TicketService.create()` to keep auto-assignment composition.
+
+Notable implementation notes:
+
+- `commons-csv 1.10.0` was already on the classpath from a prior feature; no new
+  dependency.
+- `TicketService.create()` was refactored to delegate to a new
+  `createWithInitialStatus(req, status)` so the import path can preserve the
+  CSV's status column (including terminal `DONE`) — round-tripping export →
+  import keeps status. This intentionally bypasses the forward-only state machine
+  enforced by `update()`; the `POST /tickets` controller still always lands on
+  `create()` and starts at `TODO`.
+- `TicketCsvService` uses `TransactionTemplate` (constructed from the auto-wired
+  `PlatformTransactionManager` in the constructor — `TransactionTemplate` itself
+  is not an auto-wired bean) inside the row loop so one bad row commits or rolls
+  back independently of the rest. The plan considered a single outer transaction
+  but the response shape `{ created: 42, failed: 3 }` only makes sense with
+  partial success.
+- Bean Validation is invoked manually via the injected `Validator` inside the
+  service because the import path enters `TicketService` directly rather than
+  through a `@Valid` controller boundary.
+- Row numbering in error reports is `record.getRecordNumber() + 1` so the value
+  matches the spreadsheet view (header is row 1, first data row is row 2) and
+  users can locate the failing line in Excel without arithmetic.
+- The `id` column on import is silently ignored — import always creates new
+  tickets. Documented in the export Javadoc and round-trip test.
+- Export uses `StreamingResponseBody`, but the project lookup runs eagerly
+  before the lambda so a missing project returns 404 with headers intact rather
+  than an HTTP 200 followed by a stream error.

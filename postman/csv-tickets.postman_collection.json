@@ -1,0 +1,289 @@
+{
+  "info": {
+    "name": "IssueFlow — CSV Tickets",
+    "_postman_id": "00000000-0000-0000-0000-00000000000d",
+    "description": "End-to-end tests for /tickets/export and /tickets/import — admin export download, admin import with partial-success counts, non-admin 403, and 404 on unknown project. Requires authToken from the Authentication collection. File uploads reference postman/test-files/tickets-import-mixed.csv relative to the project root (Newman working dir).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{authToken}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "developerToken", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "SETUP — create project for CSV tests",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"CsvTicketsCollection\",\n  \"description\": \"Auto-created by Postman CSV tests\",\n  \"ownerId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/projects",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('projectId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SETUP — login as developer (for 403 checks)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"username\":\"developer\",\"password\":\"Dev1234!\"}" },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Developer login succeeds', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('developerToken', pm.response.json().accessToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /tickets/import — mixed CSV -> 200 with partial-success counts",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "postman/test-files/tickets-import-mixed.csv",
+              "contentType": "text/csv"
+            },
+            {
+              "key": "projectId",
+              "value": "{{projectId}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/import",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "import"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Body has created/failed/errors keys', () => pm.expect(body).to.include.keys('created','failed','errors'));",
+              "pm.test('Two rows created', () => pm.expect(body.created).to.eql(2));",
+              "pm.test('One row failed', () => pm.expect(body.failed).to.eql(1));",
+              "pm.test('Error reports row 3 (header is row 1)', () => pm.expect(body.errors[0].row).to.eql(3));",
+              "pm.test('Error mentions priority', () => pm.expect(body.errors[0].message).to.include('priority'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET /tickets/export — admin -> 200 text/csv download",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/export?projectId={{projectId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "export"],
+          "query": [
+            { "key": "projectId", "value": "{{projectId}}" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('Content-Type is text/csv', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv'));",
+              "pm.test('Has Content-Disposition attachment header', () => {",
+              "  const cd = pm.response.headers.get('Content-Disposition');",
+              "  pm.expect(cd).to.include('attachment');",
+              "  pm.expect(cd).to.include('tickets-' + pm.collectionVariables.get('projectId') + '.csv');",
+              "});",
+              "pm.test('First line is README-canonical header', () => {",
+              "  const firstLine = pm.response.text().split(/\\r?\\n/)[0];",
+              "  pm.expect(firstLine).to.eql('id,title,description,status,priority,type,assigneeId');",
+              "});",
+              "pm.test('Body includes at least one imported ticket', () => {",
+              "  pm.expect(pm.response.text()).to.include('First valid ticket');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /tickets/import — developer -> 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{developerToken}}" }
+        ],
+        "auth": { "type": "noauth" },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "postman/test-files/tickets-import-mixed.csv",
+              "contentType": "text/csv"
+            },
+            {
+              "key": "projectId",
+              "value": "{{projectId}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/import",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "import"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+              "pm.test('Content-Type is problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET /tickets/export — developer -> 403",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{developerToken}}" }
+        ],
+        "auth": { "type": "noauth" },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/export?projectId={{projectId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "export"],
+          "query": [
+            { "key": "projectId", "value": "{{projectId}}" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET /tickets/export — unknown project -> 404",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/export?projectId=999999",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "export"],
+          "query": [
+            { "key": "projectId", "value": "999999" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+              "pm.test('Content-Type is problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST /tickets/import — missing file part -> 400",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "projectId",
+              "value": "{{projectId}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/tickets/import",
+          "host": ["{{baseUrl}}"],
+          "path": ["tickets", "import"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
