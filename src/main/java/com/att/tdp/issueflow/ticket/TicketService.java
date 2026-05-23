@@ -68,6 +68,30 @@ public class TicketService {
    */
   @Transactional
   public TicketResponse create(CreateTicketRequest request) {
+    return createWithInitialStatus(request, TicketStatus.TODO);
+  }
+
+  /**
+   * Creates a new ticket with an explicit initial status. Behaves exactly like {@link
+   * #create(CreateTicketRequest)} — same project lookup, same assignee resolution, same audit hints
+   * — except the persisted status is taken from {@code initialStatus} instead of being fixed to
+   * {@link TicketStatus#TODO}.
+   *
+   * <p>This intentionally bypasses the forward-only state machine enforced by {@link #update(Long,
+   * UpdateTicketRequest)}: it exists for the CSV import path, where roundtripping an exported
+   * ticket must preserve its status (including terminal {@code DONE}). It is not exposed via any
+   * controller — callers that go through {@code POST /tickets} always land on {@link
+   * #create(CreateTicketRequest)} and start at {@code TODO}.
+   *
+   * @param request the validated create request
+   * @param initialStatus the status the new ticket should be persisted with
+   * @return the persisted ticket as a response DTO
+   * @throws NotFoundException if no active project has the given {@code projectId}, or if {@code
+   *     assigneeId} is supplied but no user with that id exists
+   */
+  @Transactional
+  public TicketResponse createWithInitialStatus(
+      CreateTicketRequest request, TicketStatus initialStatus) {
     Project project =
         projectRepository
             .findByIdAndDeletedAtIsNull(request.projectId())
@@ -76,6 +100,7 @@ public class TicketService {
     User assignee = resolveAssignee(request.assigneeId(), project);
 
     Ticket ticket = ticketMapper.toEntity(request, project, assignee);
+    ticket.setStatus(initialStatus);
     Ticket saved = ticketRepository.save(ticket);
     return ticketMapper.toResponse(saved);
   }
