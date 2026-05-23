@@ -1,8 +1,11 @@
 package com.att.tdp.issueflow.user;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Spring Data JPA repository for {@link User}. Inherits standard CRUD plus {@link
@@ -34,4 +37,59 @@ public interface UserRepository extends JpaRepository<User, Long> {
    * @return {@code true} if a user with the same email (any casing) exists
    */
   boolean existsByEmailIgnoreCase(String email);
+
+  /**
+   * Returns the {@code DEVELOPER} with the fewest open (non-{@code DONE}, non-soft-deleted) tickets
+   * in the given project. Ties are broken by oldest {@code createdAt} for deterministic round-robin
+   * behaviour. Developers with zero assignments are preferred via {@code LEFT JOIN}.
+   *
+   * <p>Native SQL is used because the {@code LEFT JOIN ... GROUP BY ... ORDER BY COUNT() LIMIT 1}
+   * shape is awkward to express in JPQL without correlated subqueries.
+   *
+   * @param projectId the owning project identifier
+   * @return the chosen developer, or empty if no users with {@code role = DEVELOPER} exist
+   */
+  @Query(
+      value =
+          """
+          SELECT u.* FROM users u
+          LEFT JOIN tickets t ON t.assignee_id = u.id
+              AND t.project_id = :projectId
+              AND t.status <> 'DONE'
+              AND t.deleted_at IS NULL
+          WHERE u.role = 'DEVELOPER'
+          GROUP BY u.id
+          ORDER BY COUNT(t.id) ASC, u.created_at ASC
+          LIMIT 1
+          """,
+      nativeQuery = true)
+  Optional<User> findLeastBusyDeveloper(@Param("projectId") Long projectId);
+
+  /**
+   * Returns every {@code DEVELOPER} with their count of open (non-{@code DONE}, non-soft-deleted)
+   * tickets in the given project, ordered ascending by workload then by {@code createdAt}.
+   * Developers with zero assignments are included via {@code LEFT JOIN}.
+   *
+   * <p>Native SQL is used for the same reason as {@link #findLeastBusyDeveloper(Long)}. The result
+   * is bound to {@link WorkloadRow} by column alias, so reordering the {@code SELECT} list is safe
+   * but renaming aliases will break the projection.
+   *
+   * @param projectId the owning project identifier
+   * @return one row per developer, sorted by ascending workload
+   */
+  @Query(
+      value =
+          """
+          SELECT u.id AS userId, u.username AS username, COUNT(t.id) AS openTicketCount
+          FROM users u
+          LEFT JOIN tickets t ON t.assignee_id = u.id
+              AND t.project_id = :projectId
+              AND t.status <> 'DONE'
+              AND t.deleted_at IS NULL
+          WHERE u.role = 'DEVELOPER'
+          GROUP BY u.id, u.username, u.created_at
+          ORDER BY COUNT(t.id) ASC, u.created_at ASC
+          """,
+      nativeQuery = true)
+  List<WorkloadRow> findWorkloadByProjectId(@Param("projectId") Long projectId);
 }

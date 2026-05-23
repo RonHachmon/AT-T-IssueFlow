@@ -53,8 +53,13 @@ public class TicketService {
   }
 
   /**
-   * Creates a new ticket. Resolves the owning project (must be active) and optional assignee, maps
-   * the request to an entity with status {@code TODO}, saves, and returns the response.
+   * Creates a new ticket. Resolves the owning project (must be active) and the assignee, maps the
+   * request to an entity with status {@code TODO}, saves, and returns the response.
+   *
+   * <p>When the request supplies an {@code assigneeId} the named user is used; when it omits the
+   * field the ticket is auto-assigned to the least-busy {@code DEVELOPER} in the project (the audit
+   * log records the action as {@code AUTO_ASSIGN} rather than {@code CREATE}). If no developer
+   * exists, the ticket is created unassigned.
    *
    * @param request the validated create request
    * @return the persisted ticket as a response DTO
@@ -68,17 +73,25 @@ public class TicketService {
             .findByIdAndDeletedAtIsNull(request.projectId())
             .orElseThrow(() -> new NotFoundException("Project", request.projectId()));
 
-    User assignee = null;
-    if (request.assigneeId() != null) {
-      assignee =
-          userRepository
-              .findById(request.assigneeId())
-              .orElseThrow(() -> new NotFoundException("User", request.assigneeId()));
-    }
+    User assignee = resolveAssignee(request.assigneeId(), project);
 
     Ticket ticket = ticketMapper.toEntity(request, project, assignee);
     Ticket saved = ticketRepository.save(ticket);
     return ticketMapper.toResponse(saved);
+  }
+
+  private User resolveAssignee(Long explicitAssigneeId, Project project) {
+    if (explicitAssigneeId != null) {
+      return userRepository
+          .findById(explicitAssigneeId)
+          .orElseThrow(() -> new NotFoundException("User", explicitAssigneeId));
+    }
+
+    User autoAssigned = userRepository.findLeastBusyDeveloper(project.getId()).orElse(null);
+    if (autoAssigned != null) {
+      AuditContext.hint(AuditAction.AUTO_ASSIGN);
+    }
+    return autoAssigned;
   }
 
   /**
