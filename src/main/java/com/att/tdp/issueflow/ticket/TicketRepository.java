@@ -28,4 +28,24 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
    * @return all active tickets for the project, ordered by id ascending
    */
   List<Ticket> findAllByProjectIdAndDeletedAtIsNullOrderByIdAsc(Long projectId);
+
+  /**
+   * Returns all soft-deleted tickets belonging to the given project, ordered by id ascending. The
+   * inverse of {@link #findAllByProjectIdAndDeletedAtIsNullOrderByIdAsc} — used by the admin-only
+   * "list deleted" endpoint.
+   *
+   * @param projectId the owning project identifier
+   * @return all soft-deleted tickets for the project, ordered by id ascending
+   */
+  List<Ticket> findAllByProjectIdAndDeletedAtIsNotNullOrderByIdAsc(Long projectId);
+
+  /**
+   * Fetches one soft-deleted ticket by id. Returns empty if the id does not exist or the ticket is
+   * still active — used by the admin-only "restore" endpoint, where the operation is only
+   * meaningful for currently-deleted records.
+   *
+   * @param id the ticket identifier
+   * @return an {@link Optional} containing the ticket, or empty if not found or still active
+   */
+  Optional<Ticket> findByIdAndDeletedAtIsNotNull(Long id);
 }

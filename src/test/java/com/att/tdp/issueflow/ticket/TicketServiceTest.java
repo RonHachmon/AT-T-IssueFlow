@@ -273,4 +273,85 @@ class TicketServiceTest {
     assertThat(activeTicket.getDeletedAt()).isBeforeOrEqualTo(Instant.now());
     verify(ticketRepository).save(activeTicket);
   }
+
+  // ---------------- listDeletedByProject ----------------
+
+  @Test
+  void listDeletedByProject_returnsOnlySoftDeletedTickets() {
+    Ticket deletedTicket = new Ticket();
+    deletedTicket.setId(11L);
+    deletedTicket.setTitle("Old bug");
+    deletedTicket.setStatus(TicketStatus.TODO);
+    deletedTicket.setPriority(TicketPriority.LOW);
+    deletedTicket.setType(TicketType.BUG);
+    deletedTicket.setProject(activeProject);
+    deletedTicket.setDeletedAt(Instant.now());
+    TicketResponse deletedResponse =
+        new TicketResponse(
+            11L,
+            "Old bug",
+            null,
+            TicketStatus.TODO,
+            TicketPriority.LOW,
+            TicketType.BUG,
+            1L,
+            null,
+            null,
+            false);
+
+    when(projectRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(activeProject));
+    when(ticketRepository.findAllByProjectIdAndDeletedAtIsNotNullOrderByIdAsc(1L))
+        .thenReturn(List.of(deletedTicket));
+    when(ticketMapper.toResponse(deletedTicket)).thenReturn(deletedResponse);
+
+    List<TicketResponse> result = ticketService.listDeletedByProject(1L);
+
+    assertThat(result).containsExactly(deletedResponse);
+  }
+
+  @Test
+  void listDeletedByProject_throwsNotFoundWhenProjectMissingOrDeleted() {
+    when(projectRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> ticketService.listDeletedByProject(1L))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessageContaining("Project")
+        .hasMessageContaining("1");
+  }
+
+  // ---------------- restore ----------------
+
+  @Test
+  void restore_clearsDeletedAtAndSaves() {
+    activeTicket.setDeletedAt(Instant.now());
+    when(ticketRepository.findByIdAndDeletedAtIsNotNull(10L)).thenReturn(Optional.of(activeTicket));
+
+    ticketService.restore(10L);
+
+    assertThat(activeTicket.getDeletedAt()).isNull();
+    verify(ticketRepository).save(activeTicket);
+  }
+
+  @Test
+  void restore_throwsNotFoundWhenTicketIsActive() {
+    when(ticketRepository.findByIdAndDeletedAtIsNotNull(10L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> ticketService.restore(10L))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessageContaining("Ticket")
+        .hasMessageContaining("10");
+    verify(ticketRepository, never()).save(any());
+  }
+
+  @Test
+  void restore_throwsInvalidStateTransitionWhenParentProjectIsDeleted() {
+    activeTicket.setDeletedAt(Instant.now());
+    activeProject.setDeletedAt(Instant.now());
+    when(ticketRepository.findByIdAndDeletedAtIsNotNull(10L)).thenReturn(Optional.of(activeTicket));
+
+    assertThatThrownBy(() -> ticketService.restore(10L))
+        .isInstanceOf(InvalidStateTransitionException.class)
+        .hasMessageContaining("project is deleted");
+    verify(ticketRepository, never()).save(any());
+  }
 }

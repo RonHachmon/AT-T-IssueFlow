@@ -208,6 +208,53 @@ public class TicketService {
     ticketRepository.save(ticket);
   }
 
+  /**
+   * Returns all soft-deleted tickets belonging to the given project, ordered by id ascending. The
+   * project itself must be active — listing the soft-deleted tickets of a soft-deleted project is
+   * not exposed; restore the project first.
+   *
+   * @param projectId the owning project identifier
+   * @return all soft-deleted tickets for the project
+   * @throws NotFoundException if no active project has the given {@code projectId}
+   */
+  @Transactional(readOnly = true)
+  public List<TicketResponse> listDeletedByProject(Long projectId) {
+    projectRepository
+        .findByIdAndDeletedAtIsNull(projectId)
+        .orElseThrow(() -> new NotFoundException("Project", projectId));
+
+    return ticketRepository.findAllByProjectIdAndDeletedAtIsNotNullOrderByIdAsc(projectId).stream()
+        .map(ticketMapper::toResponse)
+        .toList();
+  }
+
+  /**
+   * Restores a soft-deleted ticket by clearing its {@code deletedAt} timestamp. The ticket becomes
+   * visible to standard reads again. Refuses to restore a ticket whose parent project is itself
+   * soft-deleted — the project must be restored first, otherwise the ticket would be invisible to
+   * its own GET endpoints (which cascade-hide via the project filter).
+   *
+   * @param id the ticket identifier
+   * @throws NotFoundException if no soft-deleted ticket has that id
+   * @throws InvalidStateTransitionException if the ticket's parent project is soft-deleted
+   */
+  @Transactional
+  public void restore(Long id) {
+    Ticket ticket =
+        ticketRepository
+            .findByIdAndDeletedAtIsNotNull(id)
+            .orElseThrow(() -> new NotFoundException(RESOURCE, id));
+
+    if (ticket.getProject().getDeletedAt() != null) {
+      throw new InvalidStateTransitionException(
+          "Cannot restore ticket whose project is deleted — restore the project first");
+    }
+
+    ticket.setDeletedAt(null);
+    AuditContext.hint(AuditAction.RESTORE);
+    ticketRepository.save(ticket);
+  }
+
   private void validateTransition(TicketStatus current, TicketStatus requested) {
     if (!current.isImmediateSuccessor(requested)) {
       TicketStatus[] values = TicketStatus.values();
