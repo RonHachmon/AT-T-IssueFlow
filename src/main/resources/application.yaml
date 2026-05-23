@@ -47,3 +47,6 @@ app:
     strategy: local
     local:
       base-path: ${APP_STORAGE_LOCAL_BASE_PATH:./uploads}
+  escalation:
+    cron: ${APP_ESCALATION_CRON:0 0 * * * *}
+    enabled: ${APP_ESCALATION_ENABLED:true}
