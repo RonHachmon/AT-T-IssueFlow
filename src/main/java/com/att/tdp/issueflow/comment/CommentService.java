@@ -1,6 +1,9 @@
 package com.att.tdp.issueflow.comment;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.att.tdp.issueflow.comment.dto.CommentResponse;
 import com.att.tdp.issueflow.comment.dto.CreateCommentRequest;
 import com.att.tdp.issueflow.comment.dto.UpdateCommentRequest;
+import com.att.tdp.issueflow.comment.mention.MentionExtractor;
 import com.att.tdp.issueflow.common.error.ForbiddenException;
 import com.att.tdp.issueflow.common.error.NotFoundException;
 import com.att.tdp.issueflow.ticket.Ticket;
@@ -29,22 +33,27 @@ public class CommentService {
   private final TicketRepository ticketRepository;
   private final UserRepository userRepository;
   private final CommentMapper commentMapper;
+  private final MentionExtractor mentionExtractor;
 
   public CommentService(
       CommentRepository commentRepository,
       TicketRepository ticketRepository,
       UserRepository userRepository,
-      CommentMapper commentMapper) {
+      CommentMapper commentMapper,
+      MentionExtractor mentionExtractor) {
     this.commentRepository = commentRepository;
     this.ticketRepository = ticketRepository;
     this.userRepository = userRepository;
     this.commentMapper = commentMapper;
+    this.mentionExtractor = mentionExtractor;
   }
 
   /**
    * Posts a new comment on an active ticket. The ticket must not be soft-deleted, the {@code
    * authorUsername} must resolve to a known user, and {@code request.authorId()} must match that
-   * user's database id — preventing a caller from posting as a different user.
+   * user's database id — preventing a caller from posting as a different user. Any {@code
+   * @username} handles in the content that resolve to a known user are persisted as mentions;
+   * unknown handles are silently ignored.
    *
    * @param ticketId the owning ticket identifier
    * @param request the validated comment body including {@code authorId} and {@code content}
@@ -74,6 +83,7 @@ public class CommentService {
     Comment comment = commentMapper.toEntity(request);
     comment.setTicket(ticket);
     comment.setAuthor(authenticatedUser);
+    comment.replaceMentions(resolveMentions(request.content()));
 
     Comment saved = commentRepository.save(comment);
     return commentMapper.toResponse(saved);
@@ -98,7 +108,8 @@ public class CommentService {
   }
 
   /**
-   * Updates the content of an existing comment.
+   * Updates the content of an existing comment and replaces its mention set to reflect the new
+   * content. Withdrawn mentions are removed; newly introduced known handles are added.
    *
    * @param ticketId the owning ticket identifier (used for path correctness)
    * @param commentId the comment identifier
@@ -113,12 +124,13 @@ public class CommentService {
             .orElseThrow(() -> new NotFoundException(RESOURCE, commentId));
 
     comment.setContent(request.content());
+    comment.replaceMentions(resolveMentions(request.content()));
     commentRepository.save(comment);
   }
 
   /**
    * Hard-deletes a comment. The comment is permanently removed and will not appear in subsequent
-   * list responses.
+   * list responses. Its mention rows cascade-delete via the database FK.
    *
    * @param ticketId the owning ticket identifier (used for path correctness)
    * @param commentId the comment identifier
@@ -132,5 +144,34 @@ public class CommentService {
             .orElseThrow(() -> new NotFoundException(RESOURCE, commentId));
 
     commentRepository.delete(comment);
+  }
+
+  /**
+   * Extracts {@code @username} handles from {@code content} and resolves each to a {@link User} via
+   * case-insensitive lookup, preserving first-appearance order and dropping unknown handles.
+   * Per-handle queries are cheap at the realistic N (comments cap at 2000 chars) and avoid a custom
+   * batch-IN-ignore-case query.
+   *
+   * @param content the comment body to scan
+   * @return the resolved users in order of first appearance; empty when no handles resolve
+   */
+  private List<User> resolveMentions(String content) {
+    List<String> handles = mentionExtractor.extract(content);
+    if (handles.isEmpty()) {
+      return List.of();
+    }
+    List<User> resolved = new ArrayList<>(handles.size());
+    Set<Long> seen = new HashSet<>();
+    for (String handle : handles) {
+      userRepository
+          .findByUsernameIgnoreCase(handle)
+          .ifPresent(
+              user -> {
+                if (seen.add(user.getId())) {
+                  resolved.add(user);
+                }
+              });
+    }
+    return resolved;
   }
 }

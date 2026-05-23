@@ -1,7 +1,11 @@
 package com.att.tdp.issueflow.comment;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -11,6 +15,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -19,6 +24,8 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.att.tdp.issueflow.auditlog.AuditableEntityListener;
+import com.att.tdp.issueflow.comment.mention.CommentMention;
+import com.att.tdp.issueflow.comment.mention.CommentMentionId;
 import com.att.tdp.issueflow.ticket.Ticket;
 import com.att.tdp.issueflow.user.User;
 
@@ -31,6 +38,11 @@ import lombok.Setter;
  * {@code deletedAt} column. {@code createdAt} and {@code updatedAt} are managed by Spring Data JPA
  * auditing. {@code version} is a JPA optimistic-lock counter that auto-increments on every
  * successful update.
+ *
+ * <p>The {@code mentions} collection records every user this comment {@code @}-mentions. It is
+ * maintained as a single source of truth: callers replace the whole set via {@link
+ * #replaceMentions(Collection)} on create/update, and orphan removal deletes withdrawn rows on
+ * flush.
  */
 @Entity
 @Table(name = "comments")
@@ -66,4 +78,24 @@ public class Comment {
   @Version
   @Column(name = "version", nullable = false)
   private Long version;
+
+  @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+  private Set<CommentMention> mentions = new HashSet<>();
+
+  /**
+   * Replaces the entire mention set with one row per supplied user. Existing rows for users not in
+   * {@code users} are removed via orphan removal on flush.
+   *
+   * @param users the users this comment now mentions (already deduplicated by caller)
+   */
+  public void replaceMentions(Collection<User> users) {
+    this.mentions.clear();
+    for (User u : users) {
+      CommentMention mention = new CommentMention();
+      mention.setId(new CommentMentionId(null, u.getId()));
+      mention.setComment(this);
+      mention.setUser(u);
+      this.mentions.add(mention);
+    }
+  }
 }
