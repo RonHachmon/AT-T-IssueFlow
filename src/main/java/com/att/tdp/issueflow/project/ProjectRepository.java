@@ -28,6 +28,24 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
   List<Project> findAllByDeletedAtIsNullOrderByIdAsc();
 
   /**
+   * Returns all soft-deleted projects ordered by id ascending. The inverse of {@link
+   * #findAllByDeletedAtIsNullOrderByIdAsc} — used by the admin-only "list deleted" endpoint.
+   *
+   * @return all soft-deleted projects, ordered by id ascending
+   */
+  List<Project> findAllByDeletedAtIsNotNullOrderByIdAsc();
+
+  /**
+   * Fetches one soft-deleted project by id. Returns empty if the id does not exist or the project
+   * is still active — used by the admin-only "restore" endpoint, where the operation is only
+   * meaningful for currently-deleted records.
+   *
+   * @param id the project identifier
+   * @return an {@link Optional} containing the project, or empty if not found or still active
+   */
+  Optional<Project> findByIdAndDeletedAtIsNotNull(Long id);
+
+  /**
    * Checks whether an active project with a matching name exists, comparing case-insensitively.
    * Used as a pre-save uniqueness guard; the database partial unique index provides the hard
    * constraint.

@@ -175,4 +175,68 @@ class ProjectServiceTest {
         .hasMessageContaining("10");
     verify(projectRepository, never()).save(any());
   }
+
+  // ---------------- listDeleted ----------------
+
+  @Test
+  void listDeleted_returnsOnlySoftDeletedProjects() {
+    Project deletedProject = new Project();
+    deletedProject.setId(11L);
+    deletedProject.setName("Archived");
+    deletedProject.setOwner(owner);
+    deletedProject.setDeletedAt(Instant.now());
+    ProjectResponse deletedResponse = new ProjectResponse(11L, "Archived", null, 1L);
+
+    when(projectRepository.findAllByDeletedAtIsNotNullOrderByIdAsc())
+        .thenReturn(List.of(deletedProject));
+    when(projectMapper.toResponse(deletedProject)).thenReturn(deletedResponse);
+
+    List<ProjectResponse> result = projectService.listDeleted();
+
+    assertThat(result).containsExactly(deletedResponse);
+  }
+
+  @Test
+  void listDeleted_returnsEmptyListWhenNoneDeleted() {
+    when(projectRepository.findAllByDeletedAtIsNotNullOrderByIdAsc()).thenReturn(List.of());
+
+    List<ProjectResponse> result = projectService.listDeleted();
+
+    assertThat(result).isEmpty();
+  }
+
+  // ---------------- restore ----------------
+
+  @Test
+  void restore_clearsDeletedAtAndSaves() {
+    activeProject.setDeletedAt(Instant.now());
+    when(projectRepository.findByIdAndDeletedAtIsNotNull(10L))
+        .thenReturn(Optional.of(activeProject));
+
+    projectService.restore(10L);
+
+    assertThat(activeProject.getDeletedAt()).isNull();
+    verify(projectRepository).save(activeProject);
+  }
+
+  @Test
+  void restore_throwsNotFoundWhenProjectIsActive() {
+    when(projectRepository.findByIdAndDeletedAtIsNotNull(10L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> projectService.restore(10L))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessageContaining("Project")
+        .hasMessageContaining("10");
+    verify(projectRepository, never()).save(any());
+  }
+
+  @Test
+  void restore_throwsNotFoundWhenProjectIdUnknown() {
+    when(projectRepository.findByIdAndDeletedAtIsNotNull(999L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> projectService.restore(999L))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessageContaining("999");
+    verify(projectRepository, never()).save(any());
+  }
 }

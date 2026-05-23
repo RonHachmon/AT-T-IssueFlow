@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -97,5 +98,34 @@ public class TicketController {
   @ResponseStatus(HttpStatus.OK)
   public void softDelete(@PathVariable Long ticketId) {
     ticketService.softDelete(ticketId);
+  }
+
+  /**
+   * Lists all soft-deleted tickets belonging to the given project. Admin-only — non-admin callers
+   * receive {@code 403}. The parent project must itself be active; if it has been soft-deleted, the
+   * endpoint returns {@code 404} (restore the project first).
+   *
+   * @param projectId the owning project identifier
+   * @return {@code 200 OK} with all soft-deleted tickets for the project
+   */
+  @GetMapping("/deleted")
+  @ResponseStatus(HttpStatus.OK)
+  @PreAuthorize("hasAuthority('ADMIN')")
+  public List<TicketResponse> listDeletedByProject(@RequestParam Long projectId) {
+    return ticketService.listDeletedByProject(projectId);
+  }
+
+  /**
+   * Restores a soft-deleted ticket by clearing its {@code deletedAt} timestamp. Admin-only —
+   * non-admin callers receive {@code 403}. Returns {@code 200 OK} with no body. Restoring a ticket
+   * whose parent project is soft-deleted returns {@code 409}.
+   *
+   * @param ticketId the ticket identifier
+   */
+  @PostMapping("/{ticketId}/restore")
+  @ResponseStatus(HttpStatus.OK)
+  @PreAuthorize("hasAuthority('ADMIN')")
+  public void restore(@PathVariable Long ticketId) {
+    ticketService.restore(ticketId);
   }
 }

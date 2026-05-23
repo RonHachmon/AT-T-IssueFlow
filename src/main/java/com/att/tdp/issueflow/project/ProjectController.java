@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -95,5 +96,31 @@ public class ProjectController {
   @ResponseStatus(HttpStatus.OK)
   public void softDelete(@PathVariable Long projectId) {
     projectService.softDelete(projectId);
+  }
+
+  /**
+   * Lists all soft-deleted projects. Admin-only — non-admin callers receive {@code 403}.
+   *
+   * @return {@code 200 OK} with all soft-deleted projects
+   */
+  @GetMapping("/deleted")
+  @ResponseStatus(HttpStatus.OK)
+  @PreAuthorize("hasAuthority('ADMIN')")
+  public List<ProjectResponse> listDeleted() {
+    return projectService.listDeleted();
+  }
+
+  /**
+   * Restores a soft-deleted project by clearing its {@code deletedAt} timestamp. Admin-only —
+   * non-admin callers receive {@code 403}. Returns {@code 200 OK} with no body. Restoring a project
+   * that is already active (or unknown) returns {@code 404}.
+   *
+   * @param projectId the project identifier
+   */
+  @PostMapping("/{projectId}/restore")
+  @ResponseStatus(HttpStatus.OK)
+  @PreAuthorize("hasAuthority('ADMIN')")
+  public void restore(@PathVariable Long projectId) {
+    projectService.restore(projectId);
   }
 }

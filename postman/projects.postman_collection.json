@@ -15,6 +15,11 @@
       "key": "createdProjectId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "developerToken",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -342,6 +347,201 @@
           "path": ["projects", "{{createdProjectId}}"]
         },
         "description": "Idempotency check: second delete must return 404."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404', function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Setup – login as developer (for 403 checks)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"username\":\"developer\",\"password\":\"Dev1234!\"}" },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Developer login succeeds', function () { pm.response.to.have.status(200); });",
+              "pm.collectionVariables.set('developerToken', pm.response.json().accessToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List deleted projects as ADMIN → 200 includes deleted",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/projects/deleted",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "deleted"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Body is JSON array', function () {",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});",
+              "pm.test('Body shape matches README (id, name, description, ownerId)', function () {",
+              "  if (pm.response.json().length > 0) {",
+              "    pm.expect(pm.response.json()[0]).to.have.all.keys('id', 'name', 'description', 'ownerId');",
+              "  }",
+              "});",
+              "pm.test('Soft-deleted project is in the list', function () {",
+              "  const id = Number(pm.collectionVariables.get('createdProjectId'));",
+              "  pm.expect(pm.response.json().map(p => p.id)).to.include(id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List deleted projects as DEVELOPER → 403",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{developerToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/projects/deleted",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "deleted"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 403', function () { pm.response.to.have.status(403); });",
+              "pm.test('Body is problem+json with forbidden type', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+              "  pm.expect(pm.response.json().type).to.include('forbidden');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore project as DEVELOPER → 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{developerToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/projects/{{createdProjectId}}/restore",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "{{createdProjectId}}", "restore"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 403', function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore project as ADMIN → 200 empty",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/projects/{{createdProjectId}}/restore",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "{{createdProjectId}}", "restore"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Body is empty', function () {",
+              "  pm.expect(pm.response.text()).to.eql('');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get restored project → 200 (visible again)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/projects/{{createdProjectId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "{{createdProjectId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore already-active project → 404",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/projects/{{createdProjectId}}/restore",
+          "host": ["{{baseUrl}}"],
+          "path": ["projects", "{{createdProjectId}}", "restore"]
+        },
+        "description": "Restore is only meaningful for soft-deleted projects. Calling it on an active project returns 404."
       },
       "event": [
         {

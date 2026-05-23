@@ -140,4 +140,38 @@ public class ProjectService {
     AuditContext.hint(AuditAction.SOFT_DELETE);
     projectRepository.save(project);
   }
+
+  /**
+   * Returns all soft-deleted projects ordered by id ascending. The inverse of {@link #list} — used
+   * by the admin-only listing endpoint.
+   *
+   * @return all soft-deleted projects
+   */
+  @Transactional(readOnly = true)
+  public List<ProjectResponse> listDeleted() {
+    return projectRepository.findAllByDeletedAtIsNotNullOrderByIdAsc().stream()
+        .map(projectMapper::toResponse)
+        .toList();
+  }
+
+  /**
+   * Restores a soft-deleted project by clearing its {@code deletedAt} timestamp. The project
+   * becomes visible to standard reads again. Calling restore on an already-active project — or one
+   * that does not exist — raises {@link NotFoundException} because {@code
+   * findByIdAndDeletedAtIsNotNull} returns empty.
+   *
+   * @param id the project identifier
+   * @throws NotFoundException if no soft-deleted project has that id
+   */
+  @Transactional
+  public void restore(Long id) {
+    Project project =
+        projectRepository
+            .findByIdAndDeletedAtIsNotNull(id)
+            .orElseThrow(() -> new NotFoundException(RESOURCE, id));
+
+    project.setDeletedAt(null);
+    AuditContext.hint(AuditAction.RESTORE);
+    projectRepository.save(project);
+  }
 }
